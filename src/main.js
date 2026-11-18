@@ -151,7 +151,7 @@ class Meadow extends Phaser.Scene{
     g.fillStyle(0x314f45,.8).fillEllipse(o.x+5,o.y+8,o.radius*2+20,o.radius*2+15);
     g.fillStyle(0x3c7a88,1).fillEllipse(o.x,o.y,o.radius*2,o.radius*2);
     g.lineStyle(3,0x89a899,.7).strokeEllipse(o.x,o.y,o.radius*2,o.radius*2);
-    if(o.shape==='channel'){g.fillStyle(0x3c7a88).fillRoundedRect(o.x-o.radius*.6,o.y-o.radius*1.5,o.radius*1.2,o.radius*3,20);}
+    if(o.shape==='channel'){g.fillStyle(0x3c7a88).fillRoundedRect(o.x-o.radius*.6,o.y-o.radius*.75,o.radius*1.2,o.radius*1.5,20);}
    }else if(o.kind==='thicket'){
     g.fillStyle(0x294c29).fillCircle(o.x,o.y,o.radius+8);
     for(let j=0;j<6;j++)g.fillStyle(j%2?0x477d38:0x3c682d).fillCircle(o.x+Math.cos(j)*o.radius*.55,o.y+Math.sin(j)*o.radius*.55,o.radius*.58);
@@ -314,7 +314,7 @@ class Meadow extends Phaser.Scene{
     const n=this.swarmNumber(difficulty);
     this.makeEnemy(n,pos.x,pos.y,{swarm:true});
    }
-   event.total=count;event.remaining=count;
+   event.total=this.enemies.filter(e=>e.swarm&&e.bornMinute===event.minute).length;event.remaining=event.total;
   }else{
    let pos;for(let tries=0;tries<30;tries++){pos=zones[Math.floor(Math.random()*zones.length)]();if(!this.blocked(pos.x,pos.y,35))break;}
    if(!pos||this.blocked(pos.x,pos.y,35)){this.special=null;return;}
