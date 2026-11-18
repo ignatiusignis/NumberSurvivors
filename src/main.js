@@ -1,4 +1,4 @@
-// Number Survivors 0.2.3 — pierwsza łąka, prototyp mechanik
+// Number Survivors 0.2.4 — pierwsza łąka, prototyp mechanik
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=3200;
 const nextCost=level=>Math.min(40,level*2);
@@ -43,6 +43,27 @@ class Meadow extends Phaser.Scene{
   this.spawnWave(2);this.lastSpawn=this.clock;
  }
  slotCount(){return 1+Number(this.level>=10)+Number(this.level>=20)+Number(this.level>=30);}
+ // Trudność zależy od czasu, nie od położenia na mapie.
+ enemyPrimePool(minute){
+  const unlock=[0,1,3,5,8,12,16,20];
+  return PRIMES.filter((p,i)=>minute>=unlock[i]);
+ }
+ enemyNumber(minute){
+  const primes=this.enemyPrimePool(minute);
+  const hits=Math.min(8,2+Math.floor(minute/3));
+  const count=minute===0?2+Math.floor(Math.random()*2):Math.max(2,hits-1+Math.floor(Math.random()*3));
+  // Dobieramy czynniki tak, by liczba nie przekraczała 9999.
+  let n=1;
+  for(let i=0;i<count;i++){
+   const available=primes.filter(p=>n*p<=9999);
+   if(!available.length)break;
+   // Wczesne czynniki pozostają częstsze, ale nowe też się pojawiają.
+   const p=available[Math.floor(Math.pow(Math.random(),1.25)*available.length)];
+   n*=p;
+  }
+  return n;
+ }
+
  onGameResize(gameSize){this.layoutHUD(gameSize.width,gameSize.height);}
  layoutHUD(width,height){
   // Współrzędne świata są w pikselach gry. Skaluje się tylko HUD na wąskich ekranach.
@@ -81,14 +102,13 @@ class Meadow extends Phaser.Scene{
  }
  spawnWave(count){
   const minute=Math.floor((this.clock-this.startTime)/60000);
-  const pool=minute===0?[8]:minute===1?[8,9,12,27]:[9,12,16,24,27];
   for(let i=0;i<count;i++){
    const halfW=this.scale.width/2,halfH=this.scale.height/2,margin=90;
    const side=Math.floor(Math.random()*4),offset=Math.random()*2-1;
    const ox=side===0?-(halfW+margin):side===1?(halfW+margin):offset*halfW;
    const oy=side===2?-(halfH+margin):side===3?(halfH+margin):offset*halfH;
    const x=clamp(this.player.x+ox,40,WORLD-40),y=clamp(this.player.y+oy,40,WORLD-40);
-   this.makeEnemy(pool[Math.floor(Math.random()*pool.length)],x,y);
+   this.makeEnemy(this.enemyNumber(minute),x,y);
   }
  }
  shoot(target,prime,now){
@@ -165,24 +185,26 @@ class Meadow extends Phaser.Scene{
    {id:'range',title:'Zasięg ataku',level:Math.round((this.attackRange-450)/50),max:5,effect:'+50 px'},
    {id:'attack',title:'Szybkość ataku',level:Math.round((this.attackRate-1)*10),max:10,effect:'+10%'},
    {id:'movement',title:'Szybkość ruchu',level:Math.round((this.moveMultiplier-1)*20),max:10,effect:'+5%'},
-   {id:'pickup',title:'Zbieranie EXP',level:Math.ceil((this.pickupRadius-37)/50),max:5,effect:'+50 px'},
+   {id:'pickup',title:'Zasięg zbierania EXP',level:Math.ceil((this.pickupRadius-37)/50),max:5,effect:'+50 px'},
    {id:'health',title:'Maksymalne HP',level:this.maxHealth-5,max:5,effect:'+1 HP (leczy)'},
    {id:'regen',title:'Regeneracja',level:Number(this.regeneration),max:1,effect:'1 HP co 5 s bez obrażeń'},
    {id:'multishot',title:'Wielostrzał',level:this.multishot-1,max:5,effect:'+1 strzała na dzielnik'}
   ];
  }
  statsMarkup(){
-  const rows=[
+  const levels=this.upgradeLevels();
+  const rank=id=>{const u=levels.find(v=>v.id===id);return u.level+'/'+u.max;};
+  return [
    ['Poziom postaci',this.level],
    ['HP',this.health+' / '+this.maxHealth],
-   ['Szybkość ruchu',Math.round(220*this.moveMultiplier)+' px/s'],
-   ['Szybkość ataku',Math.round(this.attackRate*100)+'%'],
-   ['Zasięg ataku',this.attackRange+' px'],
-   ['Zasięg zbierania EXP',this.pickupRadius+' px'],
-   ['Strzały na dzielnik',this.multishot]
+   ['Maksymalne HP '+rank('health'),this.maxHealth],
+   ['Szybkość ruchu '+rank('movement'),Math.round(220*this.moveMultiplier)+' px/s'],
+   ['Szybkość ataku '+rank('attack'),Math.round(this.attackRate*100)+'%'],
+   ['Zasięg ataku '+rank('range'),this.attackRange+' px'],
+   ['Zasięg zbierania EXP '+rank('pickup'),this.pickupRadius+' px'],
+   ['Wielostrzał '+rank('multishot'),this.multishot+' strzał na dzielnik'],
+   ['Regeneracja '+rank('regen'),this.regeneration?'1 HP / 5 s':'Nieodblokowana']
   ];
-  for(const u of this.upgradeLevels())rows.push([u.title+' — rozwój',u.level+'/'+u.max]);
-  return rows;
  }
  renderStats(){
   for(const id of ['character-stats','pause-stats']){
