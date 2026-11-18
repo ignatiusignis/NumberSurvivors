@@ -1,4 +1,4 @@
-// Number Survivors 0.2.5 — pierwsza łąka, prototyp mechanik
+// Number Survivors 0.2.6 — pierwsza łąka, prototyp mechanik
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=3200;
 const nextCost=level=>Math.min(40,level*2);
@@ -13,14 +13,14 @@ class Meadow extends Phaser.Scene{
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
-  this.active=[2];this.locked=[];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.manualPause=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.multishot=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.regeneration=false;this.lastRegen=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
+  this.active=[2];this.locked=[];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.manualPause=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.multishot=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.potionLevel=0;this.drops=[];this.special=null;this.eventIndex=0;this.warningUntil=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
   // Stałe elementy HUD: paski w lewym górnym rogu, dzielniki i unik na dole.
   const ui=(obj)=>obj.setScrollFactor(0).setDepth(100);
   const txt=(x,y,s,size=16)=>ui(this.add.text(x,y,s,{fontFamily:'Arial',fontSize:size+'px',fontStyle:'bold',color:'#ffffff',stroke:'#233c27',strokeThickness:3}));
   this.hpBackground=ui(this.add.rectangle(16,15,222,24,0x25352b,.86).setOrigin(0));
   this.hpBar=ui(this.add.rectangle(20,19,214,16,0x50c46b).setOrigin(0));
   this.hpLabel=txt(25,18,'HP',14);
-  this.regenLabel=txt(244,18,'',14);
+
   this.expBackground=ui(this.add.rectangle(16,44,222,19,0x25352b,.86).setOrigin(0));
   this.expBar=ui(this.add.rectangle(20,48,214,11,0xe2b84e).setOrigin(0));
   this.levelLabel=txt(247,44,'Poziom 1',15);
@@ -111,7 +111,7 @@ class Meadow extends Phaser.Scene{
   this.timeLabel.setPosition(width-80*s,top).setScale(s);
   this.levelLabel.setPosition(247*s,44*s).setScale(s);
   this.hpBar.setPosition(20*s,19*s).setScale(s);
-  this.regenLabel.setPosition(244*s,18*s).setScale(s);
+
   this.expBar.setPosition(20*s,48*s).setScale(s);
   this.hpLabel.setPosition(25*s,18*s).setScale(s);
   // Elementy tła pasków są przechowywane osobno w wersji 0.1.2.
@@ -131,19 +131,20 @@ class Meadow extends Phaser.Scene{
   this.dashLabel.setPosition(dx,y-15*s).setScale(s);
   this.dashHint.setPosition(dx,y+8*s).setScale(s);
  }
- makeEnemy(n,x,y){
-  const size=19+factorTypes(n)*7;
-  const body=this.add.circle(0,0,size,0x8e6ac1).setStrokeStyle(3,0x4a3471);
+ makeEnemy(n,x,y,options={}){
+  const size=options.boss?58:19+factorTypes(n)*7;
+  const body=this.add.circle(0,0,size,options.boss?0xb33d53:0x8e6ac1).setStrokeStyle(3,options.boss?0x601b2c:0x4a3471);
   const ears=[this.add.ellipse(-size*.6,-size*.7,12,18,0x8e6ac1),this.add.ellipse(size*.6,-size*.7,12,18,0x8e6ac1)];
   const tail=this.add.arc(size*.8,size*.6,16,285,90,false,0x76539d).setStrokeStyle(3,0x76539d);
   const label=this.add.text(0,0,String(n),{fontFamily:'Arial',fontSize:size>30?'23px':'19px',fontStyle:'bold',color:'#ffffff',stroke:'#342044',strokeThickness:4}).setOrigin(.5);
   const view=this.add.container(x,y,[tail,...ears,body,label]).setDepth(7);
-  this.enemies.push({n,x,y,size,view,label,body,bornMinute:Math.floor((this.clock-this.startTime)/60000)});
+  const enemy={n,x,y,size,view,label,body,boss:!!options.boss,swarm:!!options.swarm,hitPoints:options.hitPoints||0,bornMinute:Math.floor((this.clock-this.startTime)/60000)};
+  this.enemies.push(enemy);
+  return enemy;
  }
- spawnWave(count){
-  const minute=Math.floor((this.clock-this.startTime)/60000);
+ spawnZones(){
   const view=this.cameras.main.worldView;
-  const margin=165,edge=40,zones=[];
+  const margin=165,edge=65,zones=[];
   const rand=(lo,hi)=>Phaser.Math.Between(Math.ceil(lo),Math.floor(hi));
   const xMin=Math.max(edge,view.left),xMax=Math.min(WORLD-edge,view.right);
   const yMin=Math.max(edge,view.top),yMax=Math.min(WORLD-edge,view.bottom);
@@ -151,10 +152,97 @@ class Meadow extends Phaser.Scene{
   if(view.bottom+margin<=WORLD-edge)zones.push(()=>({x:rand(xMin,xMax),y:view.bottom+margin}));
   if(view.left-margin>=edge)zones.push(()=>({x:view.left-margin,y:rand(yMin,yMax)}));
   if(view.right+margin<=WORLD-edge)zones.push(()=>({x:view.right+margin,y:rand(yMin,yMax)}));
+  return zones;
+ }
+ spawnWave(count){
+  const zones=this.spawnZones();
   if(!zones.length)return;
+  const minute=Math.floor((this.clock-this.startTime)/60000);
   for(let i=0;i<count;i++){
    const pos=zones[Math.floor(Math.random()*zones.length)]();
    this.makeEnemy(this.enemyNumber(minute),pos.x,pos.y);
+  }
+ }
+ // Specjalne wydarzenia nie podlegają limitowi zwykłych wrogów.
+ prepareEvent(minute){
+  const swarm=minute%10===5;
+  this.special={kind:swarm?'swarm':'boss',minute,total:0,remaining:0,active:false};
+  this.warningUntil=this.clock+2000;
+  const banner=document.getElementById('event-warning');
+  banner.textContent=swarm?'⚠ NADCIĄGA RÓJ!':'⚠ POJAWI SIĘ MINIBOSS!';
+  banner.hidden=false;
+ }
+ beginEvent(){
+  const event=this.special;
+  if(!event||event.active)return;
+  const zones=this.spawnZones();
+  if(!zones.length){this.special=null;return;}
+  event.active=true;
+  document.getElementById('event-warning').hidden=true;
+  const stage=Math.floor(event.minute/10);
+  if(event.kind==='swarm'){
+   const count=event.minute===5?20:event.minute===15?30:40;
+   // 5 min: wszystkie strony; 15 min: jedna; 25 min: dwie.
+   const numberOfSides=event.minute===5?zones.length:event.minute===15?1:Math.min(2,zones.length);
+   const chosen=Phaser.Utils.Array.Shuffle([...zones]).slice(0,numberOfSides);
+   for(let i=0;i<count;i++){
+    const pos=chosen[i%chosen.length]();
+    const difficulty=event.minute===5?0:event.minute===15?2:4;
+    const n=this.swarmNumber(difficulty);
+    this.makeEnemy(n,pos.x,pos.y,{swarm:true});
+   }
+   event.total=count;event.remaining=count;
+  }else{
+   const pos=zones[Math.floor(Math.random()*zones.length)]();
+   const n=event.minute===10?6912:event.minute===20?8640:9600;
+   const hits=this.factorCount(n);
+   this.makeEnemy(n,pos.x,pos.y,{boss:true,hitPoints:hits});
+   event.total=hits;event.remaining=hits;
+  }
+  this.updateEventBar();
+ }
+ factorCount(n){
+  let count=0;
+  for(const p of PRIMES)while(n>1&&n%p===0){n/=p;count++;}
+  return count;
+ }
+ swarmNumber(stage){
+  const pool=stage===0?[2,3]:stage===2?[2,3,5,7]:[2,3,5,7,11];
+  const count=stage===0?1+Math.floor(Math.random()*2):stage===2?2+Math.floor(Math.random()*2):3+Math.floor(Math.random()*2);
+  let n=1;
+  for(let i=0;i<count;i++){
+   const possible=pool.filter(p=>n*p<=9999);
+   n*=possible[Math.floor(Math.random()*possible.length)];
+  }
+  return n;
+ }
+ updateEventBar(){
+  const bar=document.getElementById('event-bar');
+  if(!this.special||!this.special.active){bar.hidden=true;return;}
+  bar.hidden=false;
+  document.getElementById('event-name').textContent=this.special.kind==='swarm'?'⚔ RÓJ PRZECIWNIKÓW':'☠ MINIBOSS';
+  document.getElementById('event-value').textContent=this.special.remaining+' / '+this.special.total;
+  document.getElementById('event-fill').style.width=(100*this.special.remaining/this.special.total)+'%';
+  if(this.special.remaining<=0){this.special=null;bar.hidden=true;}
+ }
+ spawnDrop(type,x,y){
+  const color=type==='potion'?0xd94d60:0x48bfe6;
+  const icon=type==='potion'?'♥':'M';
+  const view=this.add.container(x,y,[
+   this.add.circle(0,0,15,color).setStrokeStyle(3,0xffffff),
+   this.add.text(0,0,icon,{font:'bold 19px Arial',color:'#ffffff'}).setOrigin(.5)
+  ]).setDepth(5);
+  this.drops.push({type,x,y,view});
+ }
+ collectMagnet(){
+  // Magnes zasysa wszystkie dotychczas leżące na mapie punkty EXP.
+  for(const token of [...this.tokens]){
+   token.view.destroy();
+   this.tokens.splice(this.tokens.indexOf(token),1);
+   this.exp++;this.total++;
+   while(this.exp>=nextCost(this.level)){
+    this.exp-=nextCost(this.level);this.level++;this.pendingUpgrades++;
+   }
   }
  }
 
@@ -166,10 +254,17 @@ class Meadow extends Phaser.Scene{
  hit(enemy,prime){
   if(!this.enemies.includes(enemy)||enemy.n%prime!==0)return;
   enemy.n/=prime;enemy.label.setText(String(enemy.n));enemy.body.setFillStyle(0xc9a5f0);
+  if(enemy.boss&&this.special?.active&&this.special.kind==='boss'){
+   this.special.remaining=Math.max(0,this.special.remaining-1);this.updateEventBar();
+  }
   this.time.delayedCall(85,()=>{if(enemy.view.active)enemy.body.setFillStyle(0x8e6ac1)});
   if(enemy.n===1){
    const token=this.add.container(enemy.x,enemy.y,[this.add.circle(0,0,11,0xf6c83f).setStrokeStyle(2,0x9c7418),this.add.text(0,0,'1',{font:'bold 14px Arial',color:'#624800'}).setOrigin(.5)]).setDepth(4);
    this.tokens.push({x:enemy.x,y:enemy.y,view:token});
+   if(Math.random()<this.potionLevel*.01)this.spawnDrop('potion',enemy.x+22,enemy.y);
+   if(Math.random()<.01)this.spawnDrop('magnet',enemy.x-22,enemy.y);
+   if(enemy.boss){this.spawnDrop('potion',enemy.x+40,enemy.y);this.spawnDrop('magnet',enemy.x-40,enemy.y);}
+   if(enemy.swarm&&this.special?.kind==='swarm'&&this.special.active){this.special.remaining--;this.updateEventBar();}
    enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);
   }
  }
@@ -191,15 +286,18 @@ class Meadow extends Phaser.Scene{
   const speed=dashing?780:220*this.moveMultiplier;
   this.player.x=clamp(this.player.x+mx*speed*dt,30,WORLD-30);this.player.y=clamp(this.player.y+my*speed*dt,30,WORLD-30);
   const minute=Math.floor((now-this.startTime)/60000);
+  if(minute>=5&&minute<=25&&minute%5===0&&this.eventIndex<minute/5){this.eventIndex=minute/5;this.prepareEvent(minute);}
+  if(this.special&&!this.special.active&&now>=this.warningUntil)this.beginEvent();
   if(minute===0){if(now-this.lastSpawn>=10000&&this.enemies.length<30){this.spawnWave(2);this.lastSpawn=now;}}
   else if(now-this.lastSpawn>2500&&this.enemies.length<Math.min(12+minute*2,45)){this.spawnWave(2);this.lastSpawn=now;}
   const cam=this.cameras.main;const bound=cam.worldView;
   for(const enemy of [...this.enemies]){
    const distance=Math.hypot(this.player.x-enemy.x,this.player.y-enemy.y)||1;
-   if(enemy.bornMinute<minute&&(enemy.x<bound.left-400||enemy.x>bound.right+400||enemy.y<bound.top-300||enemy.y>bound.bottom+300)){enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);continue;}
+   if(!enemy.swarm&&!enemy.boss&&enemy.bornMinute<minute&&(enemy.x<bound.left-400||enemy.x>bound.right+400||enemy.y<bound.top-300||enemy.y>bound.bottom+300)){enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);continue;}
    // Przeciwnik ściga gracza niezależnie od odległości i rozmiaru okna.
-   enemy.x+=(this.player.x-enemy.x)/distance*55*dt;enemy.y+=(this.player.y-enemy.y)/distance*55*dt;enemy.view.setPosition(enemy.x,enemy.y);
-   if(distance<enemy.size+12&&now-this.lastDamage>850&&now>this.invulnUntil){this.health--;this.lastDamage=now;this.lastRegen=now;}
+   const enemySpeed=enemy.boss?38:55;
+   enemy.x+=(this.player.x-enemy.x)/distance*enemySpeed*dt;enemy.y+=(this.player.y-enemy.y)/distance*enemySpeed*dt;enemy.view.setPosition(enemy.x,enemy.y);
+   if(distance<enemy.size+12&&now-this.lastDamage>850&&now>this.invulnUntil){this.health-=enemy.boss?2:1;this.lastDamage=now;}
   }
   for(const p of this.active){
    if(now-(this.lastAttack.get(p)||0)<650/this.attackRate)continue;
@@ -212,11 +310,17 @@ class Meadow extends Phaser.Scene{
    if(progress===1){a.line.destroy();this.arrows.splice(this.arrows.indexOf(a),1);this.hit(a.target,a.prime);}
   }
   for(const t of [...this.tokens])if(Math.hypot(t.x-this.player.x,t.y-this.player.y)<this.pickupRadius){t.view.destroy();this.tokens.splice(this.tokens.indexOf(t),1);this.exp++;this.total++;while(this.exp>=nextCost(this.level)){this.exp-=nextCost(this.level);this.level++;this.pendingUpgrades++;}}
-  if(this.regeneration&&this.health<this.maxHealth&&now-Math.max(this.lastDamage,this.lastRegen)>=5000){this.health++;this.lastRegen=now;}
+  for(const drop of [...this.drops]){
+   if(Math.hypot(drop.x-this.player.x,drop.y-this.player.y)>this.pickupRadius)continue;
+   if(drop.type==='potion'&&this.health>=this.maxHealth)continue;
+   if(drop.type==='potion')this.health=this.maxHealth;
+   else this.collectMagnet();
+   drop.view.destroy();this.drops.splice(this.drops.indexOf(drop),1);
+  }
   if(this.pendingUpgrades>0&&!this.upgradeOpen)this.showUpgrade();
   this.hpBar.width=214*clamp(this.health/this.maxHealth,0,1);
   this.hpLabel.setText('HP  '+this.health+'/'+this.maxHealth);
-  this.regenLabel.setText(this.regeneration&&this.health<this.maxHealth?'+'+Math.max(1,Math.ceil((5000-(now-Math.max(this.lastDamage,this.lastRegen)))/1000))+' s':'');
+
   this.expBar.width=214*clamp(this.exp/nextCost(this.level),0,1);
   this.levelLabel.setText('Poziom '+this.level);
   this.timeLabel.setText(Math.floor((now-this.startTime)/60000)+':'+String(Math.floor((now-this.startTime)/1000)%60).padStart(2,'0'));
@@ -236,7 +340,7 @@ class Meadow extends Phaser.Scene{
    {id:'movement',title:'Szybkość ruchu',level:Math.round((this.moveMultiplier-1)*20),max:10,effect:'+5%'},
    {id:'pickup',title:'Zasięg zbierania EXP',level:Math.ceil((this.pickupRadius-37)/50),max:5,effect:'+50 px'},
    {id:'health',title:'Maksymalne HP',level:this.maxHealth-5,max:5,effect:'+1 HP (leczy)'},
-   {id:'regen',title:'Regeneracja',level:Number(this.regeneration),max:1,effect:'1 HP co 5 s bez obrażeń'},
+   {id:'potion',title:'Mikstury zdrowia',level:this.potionLevel,max:5,effect:'+1% szansy na miksturę (pełne HP)'},
    {id:'multishot',title:'Wielostrzał',level:this.multishot-1,max:5,effect:'+1 strzała na dzielnik'}
   ];
  }
@@ -252,7 +356,8 @@ class Meadow extends Phaser.Scene{
    ['Zasięg ataku '+rank('range'),this.attackRange+' px'],
    ['Zasięg zbierania EXP '+rank('pickup'),this.pickupRadius+' px'],
    ['Wielostrzał '+rank('multishot'),this.multishot+' strzał na dzielnik'],
-   ['Regeneracja '+rank('regen'),this.regeneration?'1 HP / 5 s':'Nieodblokowana']
+   ['Mikstury zdrowia '+rank('potion'),this.potionLevel+'% szansy'],
+   ['Magnes EXP','1% szansy']
   ];
  }
  renderStats(){
@@ -310,7 +415,7 @@ class Meadow extends Phaser.Scene{
     case 'movement':this.moveMultiplier=Math.min(1.5,Math.round((this.moveMultiplier+.05)*100)/100);break;
     case 'pickup':this.pickupRadius=Math.min(250,this.pickupRadius+50);break;
     case 'health':this.maxHealth++;this.health=Math.min(this.maxHealth,this.health+1);break;
-    case 'regen':this.regeneration=true;this.lastRegen=this.clock;break;
+    case 'potion':this.potionLevel=Math.min(5,this.potionLevel+1);break;
     case 'multishot':this.multishot=Math.min(6,this.multishot+1);break;
    }
   }
