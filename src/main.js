@@ -1,8 +1,7 @@
-// Number Survivors 0.2.0 — pierwsza łąka, prototyp mechanik
+// Number Survivors 0.2.1 — pierwsza łąka, prototyp mechanik
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=3200;
-const COSTS=[2,4,6,10,20,30,40,50,60,70,80,90];
-const nextCost=level=>COSTS[level-1]??100;
+const nextCost=level=>Math.min(40,level*2);
 const factorTypes=n=>PRIMES.filter(p=>{let x=n;return x%p===0}).length;
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 class Meadow extends Phaser.Scene{
@@ -25,6 +24,7 @@ class Meadow extends Phaser.Scene{
   this.expBar=ui(this.add.rectangle(20,48,214,11,0xe2b84e).setOrigin(0));
   this.levelLabel=txt(247,44,'Poziom 1',15);
   this.timeLabel=txt(848,15,'0:00',19);
+  this.slotsLabel=txt(16,70,'Dzielniki 1/1',13);
   this.bottomPanel=ui(this.add.rectangle(480,551,726,78,0x182b20,.86).setStrokeStyle(2,0x63825a));
   this.primeButtons=PRIMES.map((p,i)=>{
    const x=154+i*72;
@@ -36,12 +36,13 @@ class Meadow extends Phaser.Scene{
   this.dashBox=ui(this.add.rectangle(783,550,100,56,0x339b54).setStrokeStyle(2,0x91d6a3));
   this.dashLabel=txt(783,535,'SPACJA',16).setOrigin(.5,0);
   this.dashHint=txt(783,558,'UNIK',12).setOrigin(.5,0);
-  this.input.keyboard.on('keydown',e=>{if(this.upgradeOpen){if(['1','2','3'].includes(e.key))this.chooseUpgrade(Number(e.key)-1);return;}const i=Number(e.key)-1;if(i>=0&&i<8){const p=PRIMES[i];if(!this.active.includes(p)){this.active.push(p);const slots=this.level>=40?3:this.level>=20?2:1;while(this.active.length>slots)this.active.shift();}}});
+  this.input.keyboard.on('keydown',e=>{if(this.upgradeOpen){if(['1','2','3'].includes(e.key))this.chooseUpgrade(Number(e.key)-1);return;}const i=Number(e.key)-1;if(i>=0&&i<8){const p=PRIMES[i];if(!this.active.includes(p)){this.active.push(p);const slots=this.slotCount();while(this.active.length>slots)this.active.shift();}}});
   this.layoutHUD(this.scale.width,this.scale.height);
   this.scale.on('resize',this.onGameResize,this);
   this.events.once('shutdown',()=>{this.input.keyboard.removeAllListeners('keydown');this.scale.off('resize',this.onGameResize,this);});
   this.spawnWave(2);this.lastSpawn=this.clock;
  }
+ slotCount(){return 1+Number(this.level>=10)+Number(this.level>=20)+Number(this.level>=30);}
  onGameResize(gameSize){this.layoutHUD(gameSize.width,gameSize.height);}
  layoutHUD(width,height){
   // Współrzędne świata są w pikselach gry. Skaluje się tylko HUD na wąskich ekranach.
@@ -49,6 +50,7 @@ class Meadow extends Phaser.Scene{
   const left=12,top=12;
   this.timeLabel.setPosition(width-80*s,top).setScale(s);
   this.levelLabel.setPosition(247*s,44*s).setScale(s);
+  this.slotsLabel.setPosition(16*s,70*s).setScale(s);
   this.hpBar.setPosition(20*s,19*s).setScale(s);
   this.expBar.setPosition(20*s,48*s).setScale(s);
   this.hpLabel.setPosition(25*s,18*s).setScale(s);
@@ -78,7 +80,7 @@ class Meadow extends Phaser.Scene{
   this.enemies.push({n,x,y,size,view,label,body,bornMinute:Math.floor((this.clock-this.startTime)/60000)});
  }
  spawnWave(count){
-  const minute=Math.floor((this.time.now-this.startTime)/60000);
+  const minute=Math.floor((this.clock-this.startTime)/60000);
   const pool=minute===0?[8]:minute===1?[8,12]:[12,16,24];
   for(let i=0;i<count;i++){
    const halfW=this.scale.width/2,halfH=this.scale.height/2,margin=90;
@@ -148,6 +150,7 @@ class Meadow extends Phaser.Scene{
   this.hpLabel.setText('HP  '+this.health+'/'+this.maxHealth);
   this.expBar.width=214*clamp(this.exp/nextCost(this.level),0,1);
   this.levelLabel.setText('Poziom '+this.level);
+  this.slotsLabel.setText('Dzielniki '+this.active.length+'/'+this.slotCount());
   this.timeLabel.setText(Math.floor((now-this.startTime)/60000)+':'+String(Math.floor((now-this.startTime)/1000)%60).padStart(2,'0'));
   this.primeButtons.forEach((button,i)=>{
    const selected=this.active.includes(PRIMES[i]);
