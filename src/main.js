@@ -1,9 +1,16 @@
-// Number Survivors 0.3.1 — przeszkody, zarośla i las
+// Number Survivors 0.3.2 — rozległy świat i naturalne przejścia
 const PRIMES=[2,3,5,7,11,13,17,19];
-const WORLD=6400;
+const WORLD=12800;
 const CHUNK=640;
 const hash=(x,y,k=0)=>{let n=Math.imul(x+1297,374761393)^Math.imul(y+7919,668265263)^Math.imul(k+31,2246822519);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967296;};
-const swampBlend=x=>clamp((x-3450)/1450,0,1);
+const biomeWeights=(x,y)=>{
+ const curve=Math.sin(y/950)*380+Math.sin(y/2300)*280;
+ const s=clamp((x-(3650+curve))/1450,0,1);
+ const t=clamp((x-(6900+Math.sin(y/1100)*500))/1700,0,1);
+ const f=clamp((x-(9400+Math.sin(y/1350)*420))/1900,0,1);
+ return {meadow:1-s,swamp:s*(1-t),thicket:t*(1-f),forest:f};
+};
+const swampBlend=(x,y)=>biomeWeights(x,y).swamp;
 const nextCost=level=>Math.min(40,level*2);
 const factorTypes=n=>PRIMES.filter(p=>{let x=n;return x%p===0}).length;
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
@@ -12,7 +19,7 @@ class Meadow extends Phaser.Scene{
  create(){
   this.cameras.main.setBackgroundColor('#79b65d');
   this.terrainChunks=new Map();this.obstacleChunks=new Map();
-  this.player=this.add.container(1900,WORLD/2).setDepth(10);
+  this.player=this.add.container(2200,WORLD/2).setDepth(10);
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
@@ -48,7 +55,13 @@ class Meadow extends Phaser.Scene{
   this.lastSpawn=-1;
   this.updateTerrain();
  }
- biomeAt(x){return x<4500?'swamp':x<5350?'thicket':'forest';}
+ biomeAt(x,y){const b=biomeWeights(x,y);return Object.keys(b).reduce((best,k)=>b[k]>b[best]?k:best,'meadow');}
+ // Rzeka odcina południe i środek; przejście prowadzi północą.
+ riverX(y){return 6200+Math.sin(y/540)*160+Math.sin(y/1350)*100;}
+ riverAt(x,y,radius=0){return y>2500&&Math.abs(x-this.riverX(y))<145+radius;}
+ // Zwarty pas leśny ma szerokie obejście na południu.
+ forestWallAt(x,y,radius=0){return y<9800&&Math.abs(x-(9650+Math.sin(y/650)*115))<185+radius;}
+ barrierAt(x,y,radius=0){return this.riverAt(x,y,radius)||this.forestWallAt(x,y,radius);}
  obstaclesFor(cx,cy){
   const key=cx+','+cy;
   if(this.obstacleChunks.has(key))return this.obstacleChunks.get(key);
@@ -57,14 +70,14 @@ class Meadow extends Phaser.Scene{
   for(let i=0;i<7;i++){
    const x=ox+90+hash(cx,cy,i*11+101)*(CHUNK-180);
    const y=oy+90+hash(cx,cy,i*11+102)*(CHUNK-180);
-   const kind=this.biomeAt(x),roll=hash(cx,cy,i*11+103);
-   if(kind==='swamp'&&swampBlend(x)<.38)continue;
+   const kind=this.biomeAt(x,y),roll=hash(cx,cy,i*11+103);
+   if(kind==='meadow'||this.barrierAt(x,y,150))continue;
    if(kind==='swamp'&&roll>.55)continue;
    if(kind==='thicket'&&roll>.72)continue;
    if(kind==='forest'&&roll>.82)continue;
    const radius=kind==='swamp'?65+hash(cx,cy,i*11+104)*55:kind==='thicket'?27+hash(cx,cy,i*11+104)*21:24+hash(cx,cy,i*11+104)*18;
    // Zachowaj wolną przestrzeń startową i szerokie korytarze między obiektami.
-   if(Math.hypot(x-1900,y-WORLD/2)<450)continue;
+   if(Math.hypot(x-2200,y-WORLD/2)<450)continue;
    if(obstacles.some(o=>Math.hypot(x-o.x,y-o.y)<radius+o.radius+95))continue;
    obstacles.push({x,y,radius,kind,shape:kind==='swamp'&&roll<.22?'channel':'round'});
   }
@@ -72,11 +85,11 @@ class Meadow extends Phaser.Scene{
  }
  nearbyObstacles(x,y){
   const cx=Math.floor(x/CHUNK),cy=Math.floor(y/CHUNK),all=[];
-  for(let yy=Math.max(0,cy-1);yy<=Math.min(9,cy+1);yy++)for(let xx=Math.max(0,cx-1);xx<=Math.min(9,cx+1);xx++)all.push(...this.obstaclesFor(xx,yy));
+  for(let yy=Math.max(0,cy-1);yy<=Math.min(WORLD/CHUNK-1,cy+1);yy++)for(let xx=Math.max(0,cx-1);xx<=Math.min(WORLD/CHUNK-1,cx+1);xx++)all.push(...this.obstaclesFor(xx,yy));
   return all;
  }
  blocked(x,y,radius){
-  if(x<radius||y<radius||x>WORLD-radius||y>WORLD-radius)return true;
+  if(x<radius||y<radius||x>WORLD-radius||y>WORLD-radius||this.barrierAt(x,y,radius))return true;
   return this.nearbyObstacles(x,y).some(o=>Math.hypot(x-o.x,y-o.y)<o.radius+radius);
  }
  moveAround(entity,vx,vy,dt,speed,radius){
@@ -90,7 +103,10 @@ class Meadow extends Phaser.Scene{
   return moved;
  }
  steerEnemy(enemy,dt,speed){
-  const dx=this.player.x-enemy.x,dy=this.player.y-enemy.y,dist=Math.hypot(dx,dy)||1;
+  let tx=this.player.x,ty=this.player.y;
+  if((enemy.x-this.riverX(enemy.y))*(this.player.x-this.riverX(this.player.y))<0&&enemy.y>2350){tx=this.riverX(2200);ty=2050;}
+  else if((enemy.x-9650)*(this.player.x-9650)<0&&enemy.y<9950){tx=9650;ty=10250;}
+  const dx=tx-enemy.x,dy=ty-enemy.y,dist=Math.hypot(dx,dy)||1;
   const vx=dx/dist,vy=dy/dist;
   const radius=Math.min(enemy.size*.55,24);
   const ahead=Math.max(65,speed*dt*5);
@@ -125,16 +141,16 @@ class Meadow extends Phaser.Scene{
   for(let iy=0;iy<10;iy++)for(let ix=0;ix<10;ix++){
    const x=ox+ix*64,y=oy+iy*64;
    const noise=(hash(cx*10+ix,cy*10+iy,2)-.5)*.24;
-   const blend=clamp(swampBlend(x+32)+noise,0,1);
-   const rgb=this.terrainColor(blend);
-   if(x>4500){const forest=clamp((x-4500)/1700,0,1);rgb.r=Math.round(rgb.r*(1-forest)+54*forest);rgb.g=Math.round(rgb.g*(1-forest)+99*forest);rgb.b=Math.round(rgb.b*(1-forest)+48*forest);}
+   const b=biomeWeights(x+32,y+32);
+   const rgb={r:Math.round(121*b.meadow+76*b.swamp+82*b.thicket+48*b.forest),g:Math.round(182*b.meadow+117*b.swamp+130*b.thicket+93*b.forest),b:Math.round(93*b.meadow+79*b.swamp+62*b.thicket+52*b.forest)};
+   const n=noise*26;rgb.r=clamp(rgb.r+n,0,255);rgb.g=clamp(rgb.g+n,0,255);rgb.b=clamp(rgb.b+n,0,255);
    const color=Phaser.Display.Color.GetColor(rgb.r,rgb.g,rgb.b);
    g.fillStyle(color,1).fillRect(x,y,65,65);
   }
   for(let i=0;i<65;i++){
    const x=ox+hash(cx,cy,i*3+1)*CHUNK;
    const y=oy+hash(cx,cy,i*3+2)*CHUNK;
-   const wet=swampBlend(x)+(hash(cx,cy,i*3+3)-.5)*.32;
+   const wet=swampBlend(x,y)+(hash(cx,cy,i*3+3)-.5)*.32;
    const kind=hash(cx,cy,i*3+4);
    if(wet>.42&&kind<wet*.48){
     g.fillStyle(0x466f78,.62).fillEllipse(x,y,24+hash(cx,cy,i+61)*66,11+hash(cx,cy,i+81)*27);
@@ -144,6 +160,20 @@ class Meadow extends Phaser.Scene{
     for(let j=0;j<4;j++)g.lineBetween(x+j*4-7,y+8,x+j*5-9,y-9-hash(cx,i,j)*13);
    }else{
     g.fillStyle(kind<.25?0x9acb6c:0x5b994e,.62).fillEllipse(x,y,7+kind*18,3+kind*6);
+   }
+  }
+  // Ciągłe bariery: rzeka z przejściem na północy oraz gęsty las z obejściem na południu.
+  for(let yy=oy;yy<oy+CHUNK;yy+=32){
+   const rx=this.riverX(yy);
+   if(yy>2500&&rx+145>=ox&&rx-145<=ox+CHUNK){
+    g.fillStyle(0x355d4b).fillRect(rx-156,yy,312,33);
+    g.fillStyle(0x3d8292).fillRect(rx-145,yy,290,33);
+    g.lineStyle(2,0x8db5ae,.5).lineBetween(rx-145,yy,rx-145,yy+33);
+   }
+   const fx=9650+Math.sin(yy/650)*115;
+   if(yy<9800&&fx+185>=ox&&fx-185<=ox+CHUNK){
+    g.fillStyle(0x1e4628).fillRect(fx-185,yy,370,33);
+    for(let j=0;j<5;j++){const xx=fx-165+j*76;g.fillStyle(j%2?0x275a30:0x356e35).fillCircle(xx,yy+16,33);}
    }
   }
   for(const o of this.obstaclesFor(cx,cy)){
@@ -252,7 +282,7 @@ class Meadow extends Phaser.Scene{
  }
  makeEnemy(n,x,y,options={}){
   const size=options.boss?58:19+factorTypes(n)*7;
-  const swamp=swampBlend(x)>.55;
+  const swamp=this.biomeAt(x,y)==='swamp';
   const baseColor=options.boss?0xb33d53:swamp?0x547f69:0x8e6ac1;
   const body=this.add.circle(0,0,size,baseColor).setStrokeStyle(3,options.boss?0x601b2c:swamp?0x294e42:0x4a3471);
   const ears=[this.add.ellipse(-size*.6,-size*.7,12,18,0x8e6ac1),this.add.ellipse(size*.6,-size*.7,12,18,0x8e6ac1)];
