@@ -1,4 +1,4 @@
-// Number Survivors 0.3.0 — rozległa polana i mokradła
+// Number Survivors 0.3.1 — przeszkody, zarośla i las
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=6400;
 const CHUNK=640;
@@ -11,7 +11,7 @@ class Meadow extends Phaser.Scene{
  constructor(){super('Meadow');}
  create(){
   this.cameras.main.setBackgroundColor('#79b65d');
-  this.terrainChunks=new Map();
+  this.terrainChunks=new Map();this.obstacleChunks=new Map();
   this.player=this.add.container(1900,WORLD/2).setDepth(10);
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
@@ -48,6 +48,62 @@ class Meadow extends Phaser.Scene{
   this.lastSpawn=-1;
   this.updateTerrain();
  }
+ biomeAt(x){return x<4500?'swamp':x<5350?'thicket':'forest';}
+ obstaclesFor(cx,cy){
+  const key=cx+','+cy;
+  if(this.obstacleChunks.has(key))return this.obstacleChunks.get(key);
+  const obstacles=[];
+  const ox=cx*CHUNK,oy=cy*CHUNK;
+  for(let i=0;i<7;i++){
+   const x=ox+90+hash(cx,cy,i*11+101)*(CHUNK-180);
+   const y=oy+90+hash(cx,cy,i*11+102)*(CHUNK-180);
+   const kind=this.biomeAt(x),roll=hash(cx,cy,i*11+103);
+   if(kind==='swamp'&&swampBlend(x)<.38)continue;
+   if(kind==='swamp'&&roll>.55)continue;
+   if(kind==='thicket'&&roll>.72)continue;
+   if(kind==='forest'&&roll>.82)continue;
+   const radius=kind==='swamp'?65+hash(cx,cy,i*11+104)*55:kind==='thicket'?27+hash(cx,cy,i*11+104)*21:24+hash(cx,cy,i*11+104)*18;
+   // Zachowaj wolną przestrzeń startową i szerokie korytarze między obiektami.
+   if(Math.hypot(x-1900,y-WORLD/2)<450)continue;
+   if(obstacles.some(o=>Math.hypot(x-o.x,y-o.y)<radius+o.radius+95))continue;
+   obstacles.push({x,y,radius,kind,shape:kind==='swamp'&&roll<.22?'channel':'round'});
+  }
+  this.obstacleChunks.set(key,obstacles);return obstacles;
+ }
+ nearbyObstacles(x,y){
+  const cx=Math.floor(x/CHUNK),cy=Math.floor(y/CHUNK),all=[];
+  for(let yy=Math.max(0,cy-1);yy<=Math.min(9,cy+1);yy++)for(let xx=Math.max(0,cx-1);xx<=Math.min(9,cx+1);xx++)all.push(...this.obstaclesFor(xx,yy));
+  return all;
+ }
+ blocked(x,y,radius){
+  if(x<radius||y<radius||x>WORLD-radius||y>WORLD-radius)return true;
+  return this.nearbyObstacles(x,y).some(o=>Math.hypot(x-o.x,y-o.y)<o.radius+radius);
+ }
+ moveAround(entity,vx,vy,dt,speed,radius){
+  const step=speed*dt;
+  const tx=entity.x+vx*step,ty=entity.y+vy*step;
+  if(!this.blocked(tx,ty,radius)){entity.x=tx;entity.y=ty;return true;}
+  // Przesuwanie wzdłuż krawędzi zamiast przenikania przez przeszkodę.
+  let moved=false;
+  if(!this.blocked(tx,entity.y,radius)){entity.x=tx;moved=true;}
+  if(!this.blocked(entity.x,ty,radius)){entity.y=ty;moved=true;}
+  return moved;
+ }
+ steerEnemy(enemy,dt,speed){
+  const dx=this.player.x-enemy.x,dy=this.player.y-enemy.y,dist=Math.hypot(dx,dy)||1;
+  const vx=dx/dist,vy=dy/dist;
+  const radius=Math.min(enemy.size*.55,24);
+  const ahead=Math.max(65,speed*dt*5);
+  if(!this.blocked(enemy.x+vx*ahead,enemy.y+vy*ahead,radius)&&this.moveAround(enemy,vx,vy,dt,speed,radius))return;
+  // Dwa kierunki obchodzenia; zachowaj wybrany kierunek, żeby nie drgać przy brzegu.
+  const turn=enemy.turn||((hash(Math.floor(enemy.x/40),Math.floor(enemy.y/40),5)<.5)?1:-1);
+  const choices=[turn,-turn];
+  for(const side of choices){
+   const sx=vx*.35-vy*side*.94,sy=vy*.35+vx*side*.94;
+   if(!this.blocked(enemy.x+sx*ahead,enemy.y+sy*ahead,radius)&&this.moveAround(enemy,sx,sy,dt,speed,radius)){enemy.turn=side;return;}
+  }
+  for(const side of choices){if(this.moveAround(enemy,-vy*side,vx*side,dt,speed,radius)){enemy.turn=side;return;}}
+ }
  terrainColor(t){return Phaser.Display.Color.Interpolate.ColorWithColor({r:121,g:182,b:93},{r:73,g:103,b:76},100,Math.round(t*100));}
  updateTerrain(){
   const view=this.cameras.main.worldView;
@@ -71,6 +127,7 @@ class Meadow extends Phaser.Scene{
    const noise=(hash(cx*10+ix,cy*10+iy,2)-.5)*.24;
    const blend=clamp(swampBlend(x+32)+noise,0,1);
    const rgb=this.terrainColor(blend);
+   if(x>4500){const forest=clamp((x-4500)/1700,0,1);rgb.r=Math.round(rgb.r*(1-forest)+54*forest);rgb.g=Math.round(rgb.g*(1-forest)+99*forest);rgb.b=Math.round(rgb.b*(1-forest)+48*forest);}
    const color=Phaser.Display.Color.GetColor(rgb.r,rgb.g,rgb.b);
    g.fillStyle(color,1).fillRect(x,y,65,65);
   }
@@ -87,6 +144,21 @@ class Meadow extends Phaser.Scene{
     for(let j=0;j<4;j++)g.lineBetween(x+j*4-7,y+8,x+j*5-9,y-9-hash(cx,i,j)*13);
    }else{
     g.fillStyle(kind<.25?0x9acb6c:0x5b994e,.62).fillEllipse(x,y,7+kind*18,3+kind*6);
+   }
+  }
+  for(const o of this.obstaclesFor(cx,cy)){
+   if(o.kind==='swamp'){
+    g.fillStyle(0x314f45,.8).fillEllipse(o.x+5,o.y+8,o.radius*2+20,o.radius*2+15);
+    g.fillStyle(0x3c7a88,1).fillEllipse(o.x,o.y,o.radius*2,o.radius*2);
+    g.lineStyle(3,0x89a899,.7).strokeEllipse(o.x,o.y,o.radius*2,o.radius*2);
+    if(o.shape==='channel'){g.fillStyle(0x3c7a88).fillRoundedRect(o.x-o.radius*.6,o.y-o.radius*1.5,o.radius*1.2,o.radius*3,20);}
+   }else if(o.kind==='thicket'){
+    g.fillStyle(0x294c29).fillCircle(o.x,o.y,o.radius+8);
+    for(let j=0;j<6;j++)g.fillStyle(j%2?0x477d38:0x3c682d).fillCircle(o.x+Math.cos(j)*o.radius*.55,o.y+Math.sin(j)*o.radius*.55,o.radius*.58);
+   }else{
+    g.fillStyle(0x493728).fillRect(o.x-9,o.y-8,18,29);
+    g.fillStyle(0x1e4a2a).fillCircle(o.x,o.y-12,o.radius+9);
+    g.fillStyle(0x316d35).fillCircle(o.x-9,o.y-18,o.radius*.7);
    }
   }
   this.terrainChunks.set(key,g);
@@ -209,8 +281,8 @@ class Meadow extends Phaser.Scene{
   if(!zones.length)return;
   const minute=Math.floor((this.clock-this.startTime)/60000);
   for(let i=0;i<count;i++){
-   const pos=zones[Math.floor(Math.random()*zones.length)]();
-   this.makeEnemy(this.enemyNumber(minute),pos.x,pos.y);
+   let pos;for(let tries=0;tries<15;tries++){pos=zones[Math.floor(Math.random()*zones.length)]();if(!this.blocked(pos.x,pos.y,30))break;}
+   if(pos&&!this.blocked(pos.x,pos.y,30))this.makeEnemy(this.enemyNumber(minute),pos.x,pos.y);
   }
  }
  // Specjalne wydarzenia nie podlegają limitowi zwykłych wrogów.
@@ -236,14 +308,16 @@ class Meadow extends Phaser.Scene{
    const numberOfSides=event.minute===5?zones.length:event.minute===15?1:Math.min(2,zones.length);
    const chosen=Phaser.Utils.Array.Shuffle([...zones]).slice(0,numberOfSides);
    for(let i=0;i<count;i++){
-    const pos=chosen[i%chosen.length]();
+    let pos;for(let tries=0;tries<20;tries++){pos=chosen[i%chosen.length]();if(!this.blocked(pos.x,pos.y,30))break;}
+    if(!pos||this.blocked(pos.x,pos.y,30))continue;
     const difficulty=event.minute===5?0:event.minute===15?2:4;
     const n=this.swarmNumber(difficulty);
     this.makeEnemy(n,pos.x,pos.y,{swarm:true});
    }
    event.total=count;event.remaining=count;
   }else{
-   const pos=zones[Math.floor(Math.random()*zones.length)]();
+   let pos;for(let tries=0;tries<30;tries++){pos=zones[Math.floor(Math.random()*zones.length)]();if(!this.blocked(pos.x,pos.y,35))break;}
+   if(!pos||this.blocked(pos.x,pos.y,35)){this.special=null;return;}
    const n=event.minute===10?6912:event.minute===20?8640:9600;
    const hits=this.factorCount(n)*10;
    this.makeEnemy(n,pos.x,pos.y,{boss:true,hitPoints:hits});
@@ -345,7 +419,7 @@ class Meadow extends Phaser.Scene{
   const dashing=now<this.dashUntil;
   const mx=dashing?this.dashDirection.x:dx,my=dashing?this.dashDirection.y:dy;
   const speed=dashing?780:220*this.moveMultiplier;
-  this.player.x=clamp(this.player.x+mx*speed*dt,30,WORLD-30);this.player.y=clamp(this.player.y+my*speed*dt,30,WORLD-30);
+  this.moveAround(this.player,mx,my,dt,speed,16);
   this.updateTerrain();
   const minute=Math.floor((now-this.startTime)/60000);
   if(minute>=5&&minute<=25&&minute%5===0&&this.eventIndex<minute/5){this.eventIndex=minute/5;this.prepareEvent(minute);}
@@ -359,7 +433,7 @@ class Meadow extends Phaser.Scene{
    if(!enemy.swarm&&!enemy.boss&&enemy.bornMinute<minute&&(enemy.x<bound.left-400||enemy.x>bound.right+400||enemy.y<bound.top-300||enemy.y>bound.bottom+300)){enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);continue;}
    // Przeciwnik ściga gracza niezależnie od odległości i rozmiaru okna.
    const enemySpeed=enemy.boss?38:55;
-   enemy.x+=(this.player.x-enemy.x)/distance*enemySpeed*dt;enemy.y+=(this.player.y-enemy.y)/distance*enemySpeed*dt;enemy.view.setPosition(enemy.x,enemy.y);
+   this.steerEnemy(enemy,dt,enemySpeed);enemy.view.setPosition(enemy.x,enemy.y);
    if(distance<enemy.size+12&&now-this.lastDamage>850&&now>this.invulnUntil){this.health-=enemy.boss?2:1;this.lastDamage=now;}
   }
   for(const p of this.active){
