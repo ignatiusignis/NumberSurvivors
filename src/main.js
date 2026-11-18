@@ -288,8 +288,9 @@ class Meadow extends Phaser.Scene{
   const minute=Math.floor((now-this.startTime)/60000);
   if(minute>=5&&minute<=25&&minute%5===0&&this.eventIndex<minute/5){this.eventIndex=minute/5;this.prepareEvent(minute);}
   if(this.special&&!this.special.active&&now>=this.warningUntil)this.beginEvent();
-  if(minute===0){if(now-this.lastSpawn>=10000&&this.enemies.length<30){this.spawnWave(2);this.lastSpawn=now;}}
-  else if(now-this.lastSpawn>2500&&this.enemies.length<Math.min(12+minute*2,45)){this.spawnWave(2);this.lastSpawn=now;}
+  const normalCount=this.enemies.filter(e=>!e.swarm&&!e.boss).length;
+  if(minute===0){if(now-this.lastSpawn>=10000&&normalCount<30){this.spawnWave(2);this.lastSpawn=now;}}
+  else if(now-this.lastSpawn>2500&&normalCount<Math.min(12+minute*2,45)){this.spawnWave(2);this.lastSpawn=now;}
   const cam=this.cameras.main;const bound=cam.worldView;
   for(const enemy of [...this.enemies]){
    const distance=Math.hypot(this.player.x-enemy.x,this.player.y-enemy.y)||1;
