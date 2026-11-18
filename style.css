@@ -35,3 +35,16 @@ p{margin:0;font-size:13px}
 .stats-section dt{color:#c8d5c2}
 .stats-section dd{margin:0;text-align:right;font-weight:bold}
 @media(max-height:600px){.stats-section{margin-top:8px;padding:8px}.stats-section dl{gap:4px 12px;font-size:12px}.upgrade-card{min-height:100px;gap:7px}.upgrade-modal p{margin-bottom:8px}}
+
+.slot-unlock[hidden]{display:none}
+.slot-unlock{padding:9px;margin:0 auto 12px!important;background:#2b6340;border:1px solid #9bdfa4;border-radius:8px;color:#fff4bd;font-weight:bold}
+.lock-section{margin:12px auto 0;padding:12px;background:rgba(15,31,23,.95);border:1px solid #6d8b66;border-radius:10px}
+.lock-section h3{margin:0 0 7px;color:#f4d889;font-size:17px}
+.lock-section h3 span{color:#c8d5c2;font-size:13px}
+.lock-section p{font-size:12px;line-height:1.4;margin-bottom:10px}
+#lock-buttons{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:5px}
+.lock-button{border:1px solid #748a70;border-radius:7px;background:#354b3b;color:#fff;font:bold 14px Arial;padding:9px 2px;cursor:pointer;min-width:0}
+.lock-button.is-locked{background:#247d47;border-color:#b5e5a6}
+.lock-button:disabled{opacity:.38;cursor:not-allowed}
+.lock-button:not(:disabled):hover{border-color:#fff1b8}
+@media(max-width:600px){#lock-buttons{grid-template-columns:repeat(4,minmax(0,1fr))}.lock-section{padding:8px}.lock-button{padding:7px 2px}}
