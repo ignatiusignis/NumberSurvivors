@@ -1,4 +1,4 @@
-// Number Survivors 0.1.2 — pierwsza łąka, prototyp mechanik
+// Number Survivors 0.1.3 — pierwsza łąka, prototyp mechanik
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=3200;
 const COSTS=[2,4,6,10,20,30,40,50,60,70,80,90];
@@ -124,7 +124,8 @@ class Meadow extends Phaser.Scene{
   for(const enemy of [...this.enemies]){
    const distance=Math.hypot(this.player.x-enemy.x,this.player.y-enemy.y)||1;
    if(enemy.bornMinute<minute&&(enemy.x<bound.left-400||enemy.x>bound.right+400||enemy.y<bound.top-300||enemy.y>bound.bottom+300)){enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);continue;}
-   if(distance<750){enemy.x+=(this.player.x-enemy.x)/distance*55*dt;enemy.y+=(this.player.y-enemy.y)/distance*55*dt;enemy.view.setPosition(enemy.x,enemy.y);}
+   // Przeciwnik ściga gracza niezależnie od odległości i rozmiaru okna.
+   enemy.x+=(this.player.x-enemy.x)/distance*55*dt;enemy.y+=(this.player.y-enemy.y)/distance*55*dt;enemy.view.setPosition(enemy.x,enemy.y);
    if(distance<enemy.size+12&&now-this.lastDamage>850&&now>this.invulnUntil){this.health--;this.lastDamage=now;}
   }
   for(const p of this.active){
