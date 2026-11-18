@@ -1,4 +1,4 @@
-// Number Survivors 0.2.4 — pierwsza łąka, prototyp mechanik
+// Number Survivors 0.2.5 — pierwsza łąka, prototyp mechanik
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=3200;
 const nextCost=level=>Math.min(40,level*2);
@@ -13,7 +13,7 @@ class Meadow extends Phaser.Scene{
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
-  this.active=[2];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.manualPause=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.multishot=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.regeneration=false;this.lastRegen=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
+  this.active=[2];this.locked=[];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.manualPause=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.multishot=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.regeneration=false;this.lastRegen=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
   // Stałe elementy HUD: paski w lewym górnym rogu, dzielniki i unik na dole.
   const ui=(obj)=>obj.setScrollFactor(0).setDepth(100);
   const txt=(x,y,s,size=16)=>ui(this.add.text(x,y,s,{fontFamily:'Arial',fontSize:size+'px',fontStyle:'bold',color:'#ffffff',stroke:'#233c27',strokeThickness:3}));
@@ -31,35 +31,73 @@ class Meadow extends Phaser.Scene{
    const bg=ui(this.add.rectangle(x,550,62,56,0x59615b).setStrokeStyle(2,0x89938a));
    const key=txt(x-24,528,String(i+1),12);
    const label=txt(x,543,String(p),23).setOrigin(.5,0);
-   return {bg,key,label};
+   const lock=txt(x+17,529,'🔒',13).setVisible(false);
+   return {bg,key,label,lock};
   });
   this.dashBox=ui(this.add.rectangle(783,550,100,56,0x339b54).setStrokeStyle(2,0x91d6a3));
   this.dashLabel=txt(783,535,'SPACJA',16).setOrigin(.5,0);
   this.dashHint=txt(783,558,'UNIK',12).setOrigin(.5,0);
-  this.input.keyboard.on('keydown',e=>{if(e.repeat)return;if(e.key.toLowerCase()==='p'){if(!this.upgradeOpen)this.togglePause();return;}if(this.upgradeOpen){if(['1','2','3'].includes(e.key))this.chooseUpgrade(Number(e.key)-1);return;}if(this.manualPause)return;const i=Number(e.key)-1;if(i>=0&&i<8){const p=PRIMES[i];if(!this.active.includes(p)){this.active.push(p);const slots=this.slotCount();while(this.active.length>slots)this.active.shift();}}});
+  this.input.keyboard.on('keydown',e=>{if(e.repeat)return;if(e.key.toLowerCase()==='p'){if(!this.upgradeOpen)this.togglePause();return;}if(this.upgradeOpen){if(['1','2','3'].includes(e.key))this.chooseUpgrade(Number(e.key)-1);return;}if(this.manualPause)return;const i=Number(e.key)-1;if(i>=0&&i<8){const p=PRIMES[i];this.selectPrime(p);}});
   this.layoutHUD(this.scale.width,this.scale.height);
   this.scale.on('resize',this.onGameResize,this);
   this.events.once('shutdown',()=>{this.input.keyboard.removeAllListeners('keydown');this.scale.off('resize',this.onGameResize,this);});
   this.spawnWave(2);this.lastSpawn=this.clock;
  }
  slotCount(){return 1+Number(this.level>=10)+Number(this.level>=20)+Number(this.level>=30);}
+ lockLimit(){return this.slotCount()-1;}
+ selectPrime(p){
+  if(this.locked.includes(p)||this.active.includes(p))return;
+  this.active.push(p);
+  while(this.active.length>this.slotCount()){
+   const index=this.active.findIndex(v=>!this.locked.includes(v));
+   if(index<0)break;
+   this.active.splice(index,1);
+  }
+ }
+ togglePrimeLock(p){
+  if(this.locked.includes(p))this.locked=this.locked.filter(v=>v!==p);
+  else{
+   if(this.locked.length>=this.lockLimit())return;
+   if(!this.active.includes(p))this.selectPrime(p);
+   this.locked.push(p);
+  }
+  this.renderLockMenu();
+  this.renderStats();
+ }
+ renderLockMenu(){
+  const area=document.getElementById('lock-buttons');
+  area.replaceChildren();
+  document.getElementById('lock-count').textContent=this.locked.length+'/'+this.lockLimit();
+  for(const p of PRIMES){
+   const locked=this.locked.includes(p);
+   const btn=document.createElement('button');
+   btn.className='lock-button'+(locked?' is-locked':'');
+   btn.textContent=(locked?'🔒 ':'')+p;
+   btn.disabled=!locked&&this.locked.length>=this.lockLimit();
+   btn.title=locked?'Odblokuj dzielnik':'Ustaw jako stały atak';
+   btn.onclick=()=>this.togglePrimeLock(p);
+   area.append(btn);
+  }
+ }
+
  // Trudność zależy od czasu, nie od położenia na mapie.
  enemyPrimePool(minute){
-  const unlock=[0,1,3,5,8,12,16,20];
+  const unlock=[0,1,4,7,11,15,20,25];
   return PRIMES.filter((p,i)=>minute>=unlock[i]);
  }
  enemyNumber(minute){
-  const primes=this.enemyPrimePool(minute);
-  const hits=Math.min(8,2+Math.floor(minute/3));
-  const count=minute===0?2+Math.floor(Math.random()*2):Math.max(2,hits-1+Math.floor(Math.random()*3));
-  // Dobieramy czynniki tak, by liczba nie przekraczała 9999.
+  const pool=this.enemyPrimePool(minute);
+  const previous=pool.length>1?pool.slice(0,-1):pool;
+  const latest=pool[pool.length-1];
+  const unlock=[0,1,4,7,11,15,20,25][pool.length-1];
+  const chance=Math.min(.55,.08+.075*Math.max(0,minute-unlock));
+  const target=Math.min(8,2+Math.floor((minute+Math.random()*5)/5));
   let n=1;
-  for(let i=0;i<count;i++){
-   const available=primes.filter(p=>n*p<=9999);
-   if(!available.length)break;
-   // Wczesne czynniki pozostają częstsze, ale nowe też się pojawiają.
-   const p=available[Math.floor(Math.pow(Math.random(),1.25)*available.length)];
-   n*=p;
+  for(let i=0;i<target;i++){
+   const useNew=pool.length>1&&Math.random()<chance;
+   const choices=(useNew?[latest]:previous).filter(p=>n*p<=9999);
+   if(!choices.length)break;
+   n*=choices[Math.floor(Math.random()*choices.length)];
   }
   return n;
  }
@@ -85,6 +123,7 @@ class Meadow extends Phaser.Scene{
    b.bg.setPosition(x,y).setScale(s);
    b.key.setPosition(x-24*s,y-22*s).setScale(s);
    b.label.setPosition(x,y-7*s).setScale(s);
+   b.lock.setPosition(x+17*s,y-22*s).setScale(s);
   });
   const dx=center+303*s;
   this.dashBox.setPosition(dx,y).setScale(s);
@@ -102,15 +141,22 @@ class Meadow extends Phaser.Scene{
  }
  spawnWave(count){
   const minute=Math.floor((this.clock-this.startTime)/60000);
+  const view=this.cameras.main.worldView;
+  const margin=165,edge=40,zones=[];
+  const rand=(lo,hi)=>Phaser.Math.Between(Math.ceil(lo),Math.floor(hi));
+  const xMin=Math.max(edge,view.left),xMax=Math.min(WORLD-edge,view.right);
+  const yMin=Math.max(edge,view.top),yMax=Math.min(WORLD-edge,view.bottom);
+  if(view.top-margin>=edge)zones.push(()=>({x:rand(xMin,xMax),y:view.top-margin}));
+  if(view.bottom+margin<=WORLD-edge)zones.push(()=>({x:rand(xMin,xMax),y:view.bottom+margin}));
+  if(view.left-margin>=edge)zones.push(()=>({x:view.left-margin,y:rand(yMin,yMax)}));
+  if(view.right+margin<=WORLD-edge)zones.push(()=>({x:view.right+margin,y:rand(yMin,yMax)}));
+  if(!zones.length)return;
   for(let i=0;i<count;i++){
-   const halfW=this.scale.width/2,halfH=this.scale.height/2,margin=90;
-   const side=Math.floor(Math.random()*4),offset=Math.random()*2-1;
-   const ox=side===0?-(halfW+margin):side===1?(halfW+margin):offset*halfW;
-   const oy=side===2?-(halfH+margin):side===3?(halfH+margin):offset*halfH;
-   const x=clamp(this.player.x+ox,40,WORLD-40),y=clamp(this.player.y+oy,40,WORLD-40);
-   this.makeEnemy(this.enemyNumber(minute),x,y);
+   const pos=zones[Math.floor(Math.random()*zones.length)]();
+   this.makeEnemy(this.enemyNumber(minute),pos.x,pos.y);
   }
  }
+
  shoot(target,prime,now){
   const dx=target.x-this.player.x,dy=target.y-this.player.y,dist=Math.hypot(dx,dy)||1;
   const line=this.add.line(0,0,this.player.x,this.player.y,this.player.x+dx/dist*18,this.player.y+dy/dist*18,0x4d3423).setOrigin(0).setLineWidth(2).setDepth(9);
@@ -176,6 +222,7 @@ class Meadow extends Phaser.Scene{
    const selected=this.active.includes(PRIMES[i]);
    button.bg.setFillStyle(selected?0x278a4a:0x515b55).setStrokeStyle(2,selected?0x8cde9b:0x7d8980);
    button.label.setColor(selected?'#ffffff':'#c0c8c1');
+   button.lock.setVisible(this.locked.includes(PRIMES[i]));
   });
   const dashReady=now-this.lastDash>=4000;
   this.dashBox.setFillStyle(dashReady?0x278a4a:0x515b55).setStrokeStyle(2,dashReady?0x8cde9b:0x7d8980);
@@ -222,7 +269,7 @@ class Meadow extends Phaser.Scene{
   this.time.paused=this.manualPause;
   const overlay=document.getElementById('pause-overlay');
   overlay.hidden=!this.manualPause;
-  if(this.manualPause)this.renderStats();
+  if(this.manualPause){this.renderStats();this.renderLockMenu();}
  }
  availableUpgrades(){
   return Phaser.Utils.Array.Shuffle(this.upgradeLevels().filter(u=>u.level<u.max)).slice(0,3);
@@ -235,6 +282,9 @@ class Meadow extends Phaser.Scene{
   const overlay=document.getElementById('upgrade-overlay');
   const cards=document.getElementById('upgrade-cards');
   document.getElementById('upgrade-level').textContent='Poziom '+this.level+' — wybierz ulepszenie';
+  const notice=document.getElementById('slot-unlock');
+  notice.hidden=![10,20,30].includes(this.level);
+  if(!notice.hidden)notice.textContent='🔓 Nowy slot ataku! Dostępne: '+this.slotCount()+' sloty, '+this.lockLimit()+' blokady.';
   cards.replaceChildren();
   if(!this.offers.length){
    const btn=document.createElement('button');btn.className='upgrade-card';btn.textContent='Kontynuuj (wszystkie ulepszenia osiągnęły limit)';btn.onclick=()=>this.chooseUpgrade(-1);cards.append(btn);
