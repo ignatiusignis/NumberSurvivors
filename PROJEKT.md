@@ -1,6 +1,6 @@
 # Number Survivors — dokument projektu
 
-**Wersja:** 0.2  
+**Wersja:** 0.3  
 **Status:** zatwierdzone założenia projektu; szczegóły wskazane jako otwarte pozostają do opracowania  
 **Data aktualizacji:** 18 listopada 2026
 
@@ -50,7 +50,7 @@ Mapa ma być wydajna: aktywne renderowanie i aktualizowanie przede wszystkim oto
 ## 4. Matematyka i walka
 
 - Przeciwnicy reprezentują liczby złożone (np. 30, 64, 210).
-- Dostępne dzielniki pierwsze: **2, 3, 5, 7, 11, 13, 17, 19**, wprowadzane stopniowo.
+- Dostępne dzielniki pierwsze: **2, 3, 5, 7, 11, 13, 17, 19**, dostępne graczowi od początku. Kolejne krainy stopniowo rozszerzają pulę czynników pierwszych występujących u przeciwników; wcześniej wprowadzone czynniki pozostają w puli.
 - Wybrane dzielniki atakują **automatycznie**.
 - Trafienie dzieli liczbę przeciwnika przez dzielnik, jeśli dzielenie jest możliwe. Niepoprawny dzielnik nie powoduje podziału.
 - Gdy liczba osiągnie **1**, przeciwnik zostaje pokonany.
@@ -80,7 +80,7 @@ Na rozgrzewkę pojawiają się **po 2 przeciwników co 20 sekund** (początek gr
 - Wrogowie pozostawieni bardzo daleko za graczem mogą zostać przeniesieni poza ekran przed kierunek jego ruchu, aby nie obciążać gry i nie znikać bezpowrotnie.
 - Stosujemy **budżet trudności**: duża liczba prostych przeciwników lub mniejsza liczba bardziej wymagających, z możliwością fal prostszych wrogów.
 - Trudność matematyczna zależy m.in. od liczby czynników pierwszych z powtórzeniami (liczba potrzebnych trafień) oraz liczby różnych czynników.
-- Kolejne liczby pierwsze wchodzą do puli w miarę postępu gry, a wcześniejsze pozostają.
+- Wszystkie dzielniki 2–19 są od początku dostępne graczowi, ale generator wrogów rozszerza dozwolone czynniki pierwsze wraz z kolejnymi krainami. Wcześniejsze czynniki pozostają w puli. Proponowany podział: trawa — 2; mokradła — +3; zarośla — +5; las — +7; przedpole zamku — +11; zamek — +13 i +17; lochy — +19. Szczegółowy podział pozostaje do przetestowania.
 - Wrogowie muszą być możliwi do pokonania dostępnymi dzielnikami.
 
 Szczegóły harmonogramu, limitów aktywnych wrogów i fal ustalimy podczas projektowania i testów.
@@ -160,7 +160,52 @@ Ulepszenia specjalne mogą być związane z konkretnymi dzielnikami. Szczegóły
 - Opcjonalny ranking w przyszłości; globalny ranking wymaga zaplecza serwerowego i rozwiązania kwestii bezpiecznych nazw graczy.
 - **Optymalizacja:** aktualizowanie i renderowanie przede wszystkim widocznych fragmentów mapy; odległe obszary i niezebrane żetony nie wymagają ciągłych animacji. Wrogowie są zarządzani tak, by ograniczać koszty symulacji i renderowania.
 
-## 11. Otwarte decyzje na kolejne etapy
+
+## 11. Bohater i przyszłe klasy postaci
+
+- Pierwsza grywalna klasa to **łotrzyk/łucznik**, z własną, oryginalną grafiką fantasy pixel art.
+- **Spacja** uruchamia krótki unik: szybkie przemieszczenie w kierunku aktualnego ruchu oraz **chwilową nietykalność**.
+- Unik nie pozwala przenikać przez stałe przeszkody; jego długość, czas trwania i odnowienie ustalimy w testach (roboczo 0,2 s i 4 s odnowienia).
+- W przyszłości możliwe kolejne klasy: **wojownik z tarczą** i **mag z dodatkowym atakiem**, a także osobne **drzewka rozwoju klas**.
+- Grafiki mają być oryginalne, bez kopiowania chronionych zasobów innych gier.
+
+## 12. Rodziny przeciwników, liczby i fale
+
+### Wygląd
+- Wariant **C**: fantastyczne stworki o prostych, geometrycznych korpusach, z **dużą, kontrastową liczbą na ciele**.
+- Cztery podstawowe rodziny, od łatwiejszych do trudniejszych: **szczury, pająki, nietoperze, wilki**.
+- W obrębie rodziny można używać wariantów kolorystycznych i kilku bazowych modeli.
+- Liczba pozostaje czytelna w ruchu; docelowe grafiki nie są emoji.
+
+### Ograniczenia generatora
+- Zwykły przeciwnik ma liczbę **nie większą niż 9999** (maksymalnie cztery cyfry).
+- Zwykły przeciwnik wymaga **maksymalnie 8 poprawnych podziałów** do pokonania.
+- Generujemy wyłącznie liczby z czynników pierwszych dopuszczonych dla aktualnej krainy.
+- Proste liczby wymagające niewielu podziałów (np. 8, 9, 16, 27) mają pojawiać się **tylko na początku gry**, a nie w zamku i lochach.
+- Robocze przedziały liczby podziałów: początek 2–4, wczesne krainy 3–5, środkowe 4–6, zamek i lochy 5–8. Ostateczny balans do testów.
+
+### Pule minutowe
+- **Pierwsza minuta:** tylko przeciwnicy z liczbą **8**; po **2 sztuki co 20 sekund**.
+- **Druga minuta:** dwa rodzaje liczb, np. **8 i 12**.
+- **Od trzeciej minuty:** **maksymalnie 3 rodzaje liczb w puli na każdą minutę**. Każdy rodzaj może mieć wielu przedstawicieli.
+- Na granicy minuty losowana lub dobierana jest nowa pula; nowe jednostki pochodzą tylko z aktualnej puli. **Niedobitki poprzednich minut mogą pozostać**.
+- **Wyjątek optymalizacyjny:** po rozpoczęciu nowej minuty przeciwnik ze starej puli może zostać usunięty bez EXP, gdy znajduje się całkowicie poza ekranem, a dodatkowy dystans od granicy widoku wynosi co najmniej **pół szerokości ekranu**. Nie znika na oczach gracza.
+- Przeciwników z bieżącej puli można przenosić poza ekran przed kierunek ruchu gracza, zgodnie z zasadami odciążania symulacji.
+- Liczbę jednostek nadal kontroluje **budżet trudności**, a nie tylko liczba modeli czy rodzajów.
+
+## 13. Numeracja wersji
+
+**Dokument projektu** jest obecnie w wersji **0.3**; jest to numer rewizji założeń, nie numer wydania gry.
+
+**Gra** będzie używała numeracji **MAJOR.MINOR.PATCH**, np.:
+- **0.1.0** — pierwszy grywalny prototyp;
+- **0.1.1**, **0.1.2**, … **0.1.10** — kolejne drobne poprawki;
+- **0.2.0** — większa aktualizacja;
+- **1.0.0** — pierwsze pełne wydanie.
+
+Numer każdej części może być większy niż 9.
+
+## 14. Otwarte decyzje na kolejne etapy
 
 1. Wygląd i animacje bohatera, przeciwników oraz Multiplosa.
 2. Dokładne zachowanie broni, tempo ataków i wybór celów.
@@ -174,4 +219,4 @@ Ulepszenia specjalne mogą być związane z konkretnymi dzielnikami. Szczegóły
 
 ---
 
-**Historia decyzji:** v0.1 — fundamenty matematyki i uzbrojenia; v0.2 — fabuła, świat fantasy, 30-minutowy cel, eksploracja, system EXP, magnes, budżet przeciwników, szerokie przejścia w całym świecie, lochy i Multiplos.
+**Historia decyzji:** v0.1 — fundamenty matematyki i uzbrojenia; v0.2 — fabuła, świat fantasy, 30-minutowy cel, eksploracja, system EXP, magnes, budżet przeciwników, szerokie przejścia w całym świecie, lochy i Multiplos; v0.3 — łotrzyk i unik, przyszłe klasy, modele wrogów, ograniczenia liczb, pule minutowe, optymalizacja niedobitków i numeracja wydań.
