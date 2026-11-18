@@ -1,4 +1,4 @@
-// Number Survivors 0.2.1 — pierwsza łąka, prototyp mechanik
+// Number Survivors 0.2.2 — pierwsza łąka, prototyp mechanik
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=3200;
 const nextCost=level=>Math.min(40,level*2);
@@ -13,13 +13,14 @@ class Meadow extends Phaser.Scene{
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
-  this.active=[2];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.regeneration=false;this.lastRegen=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
+  this.active=[2];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.manualPause=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.regeneration=false;this.lastRegen=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
   // Stałe elementy HUD: paski w lewym górnym rogu, dzielniki i unik na dole.
   const ui=(obj)=>obj.setScrollFactor(0).setDepth(100);
   const txt=(x,y,s,size=16)=>ui(this.add.text(x,y,s,{fontFamily:'Arial',fontSize:size+'px',fontStyle:'bold',color:'#ffffff',stroke:'#233c27',strokeThickness:3}));
   this.hpBackground=ui(this.add.rectangle(16,15,222,24,0x25352b,.86).setOrigin(0));
   this.hpBar=ui(this.add.rectangle(20,19,214,16,0x50c46b).setOrigin(0));
   this.hpLabel=txt(25,18,'HP',14);
+  this.regenLabel=txt(244,18,'',14);
   this.expBackground=ui(this.add.rectangle(16,44,222,19,0x25352b,.86).setOrigin(0));
   this.expBar=ui(this.add.rectangle(20,48,214,11,0xe2b84e).setOrigin(0));
   this.levelLabel=txt(247,44,'Poziom 1',15);
@@ -36,7 +37,7 @@ class Meadow extends Phaser.Scene{
   this.dashBox=ui(this.add.rectangle(783,550,100,56,0x339b54).setStrokeStyle(2,0x91d6a3));
   this.dashLabel=txt(783,535,'SPACJA',16).setOrigin(.5,0);
   this.dashHint=txt(783,558,'UNIK',12).setOrigin(.5,0);
-  this.input.keyboard.on('keydown',e=>{if(this.upgradeOpen){if(['1','2','3'].includes(e.key))this.chooseUpgrade(Number(e.key)-1);return;}const i=Number(e.key)-1;if(i>=0&&i<8){const p=PRIMES[i];if(!this.active.includes(p)){this.active.push(p);const slots=this.slotCount();while(this.active.length>slots)this.active.shift();}}});
+  this.input.keyboard.on('keydown',e=>{if(e.repeat)return;if(e.key.toLowerCase()==='p'){if(!this.upgradeOpen)this.togglePause();return;}if(this.upgradeOpen){if(['1','2','3'].includes(e.key))this.chooseUpgrade(Number(e.key)-1);return;}if(this.manualPause)return;const i=Number(e.key)-1;if(i>=0&&i<8){const p=PRIMES[i];if(!this.active.includes(p)){this.active.push(p);const slots=this.slotCount();while(this.active.length>slots)this.active.shift();}}});
   this.layoutHUD(this.scale.width,this.scale.height);
   this.scale.on('resize',this.onGameResize,this);
   this.events.once('shutdown',()=>{this.input.keyboard.removeAllListeners('keydown');this.scale.off('resize',this.onGameResize,this);});
@@ -52,6 +53,7 @@ class Meadow extends Phaser.Scene{
   this.levelLabel.setPosition(247*s,44*s).setScale(s);
   this.slotsLabel.setPosition(16*s,70*s).setScale(s);
   this.hpBar.setPosition(20*s,19*s).setScale(s);
+  this.regenLabel.setPosition(244*s,18*s).setScale(s);
   this.expBar.setPosition(20*s,48*s).setScale(s);
   this.hpLabel.setPosition(25*s,18*s).setScale(s);
   // Elementy tła pasków są przechowywane osobno w wersji 0.1.2.
@@ -107,7 +109,7 @@ class Meadow extends Phaser.Scene{
   }
  }
  update(frameNow,delta){
-  if(this.upgradeOpen)return;
+  if(this.upgradeOpen||this.manualPause)return;
   this.clock+=Math.min(delta,50);
   const now=this.clock;
   if(this.health<=0){this.scene.pause();this.add.text(this.cameras.main.scrollX+400,this.cameras.main.scrollY+250,'KONIEC GRY',{font:'bold 52px Arial',color:'#fff'}).setOrigin(.5);return;}
@@ -148,6 +150,7 @@ class Meadow extends Phaser.Scene{
   if(this.pendingUpgrades>0&&!this.upgradeOpen)this.showUpgrade();
   this.hpBar.width=214*clamp(this.health/this.maxHealth,0,1);
   this.hpLabel.setText('HP  '+this.health+'/'+this.maxHealth);
+  this.regenLabel.setText(this.regeneration&&this.health<this.maxHealth?'+'+Math.max(1,Math.ceil((5000-(now-Math.max(this.lastDamage,this.lastRegen)))/1000))+' s':'');
   this.expBar.width=214*clamp(this.exp/nextCost(this.level),0,1);
   this.levelLabel.setText('Poziom '+this.level);
   this.slotsLabel.setText('Dzielniki '+this.active.length+'/'+this.slotCount());
@@ -159,6 +162,36 @@ class Meadow extends Phaser.Scene{
   });
   const dashReady=now-this.lastDash>=4000;
   this.dashBox.setFillStyle(dashReady?0x278a4a:0x515b55).setStrokeStyle(2,dashReady?0x8cde9b:0x7d8980);
+ }
+ statsMarkup(){
+  const pct=v=>Math.round(v*100)+'%';
+  const rows=[
+   ['Poziom',this.level],
+   ['HP',this.health+' / '+this.maxHealth],
+   ['Szybkość ruchu',pct(this.moveMultiplier)+' ('+Math.round(220*this.moveMultiplier)+' px/s)'],
+   ['Szybkość ataku',pct(this.attackRate)],
+   ['Zasięg ataku',this.attackRange+' px'],
+   ['Zasięg zbierania EXP',this.pickupRadius+' px'],
+   ['Regeneracja',this.regeneration?'1 HP / 5 s bez obrażeń':'Nieodblokowana'],
+   ['Dzielniki',this.active.join(', ')+' ('+this.active.length+'/'+this.slotCount()+')']
+  ];
+  return rows;
+ }
+ renderStats(){
+  const host=document.getElementById('character-stats');
+  host.replaceChildren();
+  for(const [name,value] of this.statsMarkup()){
+   const dt=document.createElement('dt');dt.textContent=name;
+   const dd=document.createElement('dd');dd.textContent=String(value);
+   host.append(dt,dd);
+  }
+ }
+ togglePause(){
+  this.manualPause=!this.manualPause;
+  this.time.paused=this.manualPause;
+  const overlay=document.getElementById('pause-overlay');
+  overlay.hidden=!this.manualPause;
+  if(this.manualPause)this.renderStats();
  }
  availableUpgrades(){
   const choices=[
@@ -175,6 +208,7 @@ class Meadow extends Phaser.Scene{
   this.upgradeOpen=true;
   this.time.paused=true;
   this.offers=this.availableUpgrades();
+  this.renderStats();
   const overlay=document.getElementById('upgrade-overlay');
   const cards=document.getElementById('upgrade-cards');
   document.getElementById('upgrade-level').textContent='Poziom '+this.level+' — wybierz ulepszenie';
