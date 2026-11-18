@@ -23,3 +23,15 @@ p{margin:0;font-size:13px}
 .upgrade-card span:last-child{font-size:14px;color:#e4e8da}
 .upgrade-key{background:#56855a;padding:4px 12px;border-radius:7px;font-weight:bold}
 @media(max-width:600px){#upgrade-overlay{padding:8px}.upgrade-card{min-height:105px;flex-basis:140px;gap:6px;padding:8px}.upgrade-card strong{font-size:15px}.upgrade-modal p{font-size:12px;margin-bottom:10px}}
+
+#pause-overlay[hidden]{display:none}
+#pause-overlay{position:absolute;inset:0;z-index:20;background:rgba(10,18,15,.82);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.pause-modal{width:min(530px,100%);text-align:center;color:#f4f6eb}
+.pause-modal h2{font-size:32px;color:#f4d889;margin:0 0 12px}
+.pause-modal p{margin-bottom:18px;font-size:15px}
+.stats-section{margin:20px auto 0;padding:12px 16px;max-width:600px;background:rgba(15,31,23,.95);border:1px solid #6d8b66;border-radius:10px;text-align:left}
+.stats-section h3{text-align:center;font-size:17px;margin:0 0 12px;color:#f4d889}
+.stats-section dl{display:grid;grid-template-columns:1fr auto;gap:8px 18px;margin:0;font-size:14px}
+.stats-section dt{color:#c8d5c2}
+.stats-section dd{margin:0;text-align:right;font-weight:bold}
+@media(max-height:600px){.stats-section{margin-top:8px;padding:8px}.stats-section dl{gap:4px 12px;font-size:12px}.upgrade-card{min-height:100px;gap:7px}.upgrade-modal p{margin-bottom:8px}}
