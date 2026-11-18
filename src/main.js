@@ -178,12 +178,14 @@ class Meadow extends Phaser.Scene{
   return rows;
  }
  renderStats(){
-  const host=document.getElementById('character-stats');
-  host.replaceChildren();
-  for(const [name,value] of this.statsMarkup()){
-   const dt=document.createElement('dt');dt.textContent=name;
-   const dd=document.createElement('dd');dd.textContent=String(value);
-   host.append(dt,dd);
+  for(const id of ['character-stats','pause-stats']){
+   const host=document.getElementById(id);
+   host.replaceChildren();
+   for(const [name,value] of this.statsMarkup()){
+    const dt=document.createElement('dt');dt.textContent=name;
+    const dd=document.createElement('dd');dd.textContent=String(value);
+    host.append(dt,dd);
+   }
   }
  }
  togglePause(){
