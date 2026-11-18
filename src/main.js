@@ -1,6 +1,9 @@
-// Number Survivors 0.2.6 — pierwsza łąka, prototyp mechanik
+// Number Survivors 0.3.0 — rozległa polana i mokradła
 const PRIMES=[2,3,5,7,11,13,17,19];
-const WORLD=3200;
+const WORLD=6400;
+const CHUNK=640;
+const hash=(x,y,k=0)=>{let n=Math.imul(x+1297,374761393)^Math.imul(y+7919,668265263)^Math.imul(k+31,2246822519);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967296;};
+const swampBlend=x=>clamp((x-3450)/1450,0,1);
 const nextCost=level=>Math.min(40,level*2);
 const factorTypes=n=>PRIMES.filter(p=>{let x=n;return x%p===0}).length;
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
@@ -8,7 +11,7 @@ class Meadow extends Phaser.Scene{
  constructor(){super('Meadow');}
  create(){
   this.cameras.main.setBackgroundColor('#79b65d');
-  this.add.grid(WORLD/2,WORLD/2,WORLD,WORLD,80,80,0x80b861,1,0x6da351,0.24).setDepth(-10);
+  this.terrainChunks=new Map();
   this.player=this.add.container(WORLD/2,WORLD/2).setDepth(10);
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
@@ -43,6 +46,50 @@ class Meadow extends Phaser.Scene{
   this.events.once('shutdown',()=>{this.input.keyboard.removeAllListeners('keydown');this.scale.off('resize',this.onGameResize,this);});
   // Pierwsza fala dopiero po ustawieniu kamery w pierwszej klatce.
   this.lastSpawn=-1;
+  this.updateTerrain();
+ }
+ terrainColor(t){return Phaser.Display.Color.Interpolate.ColorWithColor({r:121,g:182,b:93},{r:73,g:103,b:76},100,Math.round(t*100));}
+ updateTerrain(){
+  const view=this.cameras.main.worldView;
+  const minX=clamp(Math.floor((view.left-CHUNK)/CHUNK),0,WORLD/CHUNK-1);
+  const maxX=clamp(Math.floor((view.right+CHUNK)/CHUNK),0,WORLD/CHUNK-1);
+  const minY=clamp(Math.floor((view.top-CHUNK)/CHUNK),0,WORLD/CHUNK-1);
+  const maxY=clamp(Math.floor((view.bottom+CHUNK)/CHUNK),0,WORLD/CHUNK-1);
+  const visible=new Set();
+  for(let cy=minY;cy<=maxY;cy++)for(let cx=minX;cx<=maxX;cx++){
+   const key=cx+','+cy;visible.add(key);
+   if(!this.terrainChunks.has(key))this.buildChunk(cx,cy,key);
+  }
+  for(const [key,g] of this.terrainChunks)if(!visible.has(key)){g.destroy();this.terrainChunks.delete(key);}
+ }
+ buildChunk(cx,cy,key){
+  const g=this.add.graphics().setDepth(-10);
+  const ox=cx*CHUNK,oy=cy*CHUNK;
+  // Małe pola o zmiennym nasyceniu tworzą łagodne, nieregularne przejście.
+  for(let iy=0;iy<10;iy++)for(let ix=0;ix<10;ix++){
+   const x=ox+ix*64,y=oy+iy*64;
+   const noise=(hash(cx*10+ix,cy*10+iy,2)-.5)*.24;
+   const blend=clamp(swampBlend(x+32)+noise,0,1);
+   const rgb=this.terrainColor(blend);
+   const color=Phaser.Display.Color.GetColor(rgb.r,rgb.g,rgb.b);
+   g.fillStyle(color,1).fillRect(x,y,65,65);
+  }
+  for(let i=0;i<65;i++){
+   const x=ox+hash(cx,cy,i*3+1)*CHUNK;
+   const y=oy+hash(cx,cy,i*3+2)*CHUNK;
+   const wet=swampBlend(x)+(hash(cx,cy,i*3+3)-.5)*.32;
+   const kind=hash(cx,cy,i*3+4);
+   if(wet>.42&&kind<wet*.48){
+    g.fillStyle(0x466f78,.62).fillEllipse(x,y,24+hash(cx,cy,i+61)*66,11+hash(cx,cy,i+81)*27);
+    g.lineStyle(1,0x90b4a5,.35).strokeEllipse(x,y,19,8);
+   }else if(wet>.25&&kind<.7){
+    g.lineStyle(2,0x657e43,.9);
+    for(let j=0;j<4;j++)g.lineBetween(x+j*4-7,y+8,x+j*5-9,y-9-hash(cx,i,j)*13);
+   }else{
+    g.fillStyle(kind<.25?0x9acb6c:0x5b994e,.62).fillEllipse(x,y,7+kind*18,3+kind*6);
+   }
+  }
+  this.terrainChunks.set(key,g);
  }
  slotCount(){return 1+Number(this.level>=10)+Number(this.level>=20)+Number(this.level>=30);}
  lockLimit(){return this.slotCount()-1;}
@@ -133,12 +180,15 @@ class Meadow extends Phaser.Scene{
  }
  makeEnemy(n,x,y,options={}){
   const size=options.boss?58:19+factorTypes(n)*7;
-  const body=this.add.circle(0,0,size,options.boss?0xb33d53:0x8e6ac1).setStrokeStyle(3,options.boss?0x601b2c:0x4a3471);
+  const swamp=swampBlend(x)>.55;
+  const baseColor=options.boss?0xb33d53:swamp?0x547f69:0x8e6ac1;
+  const body=this.add.circle(0,0,size,baseColor).setStrokeStyle(3,options.boss?0x601b2c:swamp?0x294e42:0x4a3471);
   const ears=[this.add.ellipse(-size*.6,-size*.7,12,18,0x8e6ac1),this.add.ellipse(size*.6,-size*.7,12,18,0x8e6ac1)];
   const tail=this.add.arc(size*.8,size*.6,16,285,90,false,0x76539d).setStrokeStyle(3,0x76539d);
   const label=this.add.text(0,0,String(n),{fontFamily:'Arial',fontSize:size>30?'23px':'19px',fontStyle:'bold',color:'#ffffff',stroke:'#342044',strokeThickness:4}).setOrigin(.5);
-  const view=this.add.container(x,y,[tail,...ears,body,label]).setDepth(7);
-  const enemy={n,x,y,size,view,label,body,boss:!!options.boss,swarm:!!options.swarm,hitPoints:options.hitPoints||0,bornMinute:Math.floor((this.clock-this.startTime)/60000)};
+  const eyes=swamp&&!options.boss?[this.add.circle(-size*.3,-size*.12,4,0xe3dc80),this.add.circle(size*.3,-size*.12,4,0xe3dc80)]:[];
+  const view=this.add.container(x,y,[tail,...ears,body,...eyes,label]).setDepth(7);
+  const enemy={n,x,y,size,view,label,body,boss:!!options.boss,swarm:!!options.swarm,hitPoints:options.hitPoints||0,armor:options.boss?10:0,baseColor,bornMinute:Math.floor((this.clock-this.startTime)/60000)};
   this.enemies.push(enemy);
   return enemy;
  }
@@ -181,7 +231,7 @@ class Meadow extends Phaser.Scene{
   document.getElementById('event-warning').hidden=true;
   const stage=Math.floor(event.minute/10);
   if(event.kind==='swarm'){
-   const count=event.minute===5?20:event.minute===15?30:40;
+   const count=event.minute===5?30:event.minute===15?40:50;
    // 5 min: wszystkie strony; 15 min: jedna; 25 min: dwie.
    const numberOfSides=event.minute===5?zones.length:event.minute===15?1:Math.min(2,zones.length);
    const chosen=Phaser.Utils.Array.Shuffle([...zones]).slice(0,numberOfSides);
@@ -195,7 +245,7 @@ class Meadow extends Phaser.Scene{
   }else{
    const pos=zones[Math.floor(Math.random()*zones.length)]();
    const n=event.minute===10?6912:event.minute===20?8640:9600;
-   const hits=this.factorCount(n);
+   const hits=this.factorCount(n)*10;
    this.makeEnemy(n,pos.x,pos.y,{boss:true,hitPoints:hits});
    event.total=hits;event.remaining=hits;
   }
@@ -253,16 +303,27 @@ class Meadow extends Phaser.Scene{
  }
  hit(enemy,prime){
   if(!this.enemies.includes(enemy)||enemy.n%prime!==0)return;
-  enemy.n/=prime;enemy.label.setText(String(enemy.n));enemy.body.setFillStyle(0xc9a5f0);
-  if(enemy.boss&&this.special?.active&&this.special.kind==='boss'){
-   this.special.remaining=Math.max(0,this.special.remaining-1);this.updateEventBar();
+  if(enemy.boss){
+   enemy.armor--;
+   if(this.special?.active&&this.special.kind==='boss'){
+    this.special.remaining=Math.max(0,this.special.remaining-1);this.updateEventBar();
+   }
+   if(enemy.armor>0){enemy.body.setFillStyle(0xf1a5b1);this.time.delayedCall(85,()=>{if(enemy.view.active)enemy.body.setFillStyle(enemy.baseColor);});return;}
+   enemy.armor=10;
   }
-  this.time.delayedCall(85,()=>{if(enemy.view.active)enemy.body.setFillStyle(0x8e6ac1)});
+  enemy.n/=prime;enemy.label.setText(String(enemy.n));enemy.body.setFillStyle(0xc9a5f0);
+  this.time.delayedCall(85,()=>{if(enemy.view.active)enemy.body.setFillStyle(enemy.baseColor)});
   if(enemy.n===1){
-   const token=this.add.container(enemy.x,enemy.y,[this.add.circle(0,0,11,0xf6c83f).setStrokeStyle(2,0x9c7418),this.add.text(0,0,'1',{font:'bold 14px Arial',color:'#624800'}).setOrigin(.5)]).setDepth(4);
-   this.tokens.push({x:enemy.x,y:enemy.y,view:token});
-   if(Math.random()<this.potionLevel*.01)this.spawnDrop('potion',enemy.x+22,enemy.y);
-   if(Math.random()<.01)this.spawnDrop('magnet',enemy.x-22,enemy.y);
+   const reward=enemy.boss?(enemy.bornMinute===10?30:enemy.bornMinute===20?40:50):1;
+   for(let i=0;i<reward;i++){
+    const angle=i*2.39996,radius=enemy.boss?12+Math.sqrt(i)*14:0;
+    const tx=clamp(enemy.x+Math.cos(angle)*radius,15,WORLD-15);
+    const ty=clamp(enemy.y+Math.sin(angle)*radius,15,WORLD-15);
+    const token=this.add.container(tx,ty,[this.add.circle(0,0,11,0xf6c83f).setStrokeStyle(2,0x9c7418),this.add.text(0,0,'1',{font:'bold 14px Arial',color:'#624800'}).setOrigin(.5)]).setDepth(4);
+    this.tokens.push({x:tx,y:ty,view:token});
+   }
+   if(Math.random()<this.potionLevel*.005)this.spawnDrop('potion',enemy.x+22,enemy.y);
+   if(Math.random()<.005)this.spawnDrop('magnet',enemy.x-22,enemy.y);
    if(enemy.boss){this.spawnDrop('potion',enemy.x+40,enemy.y);this.spawnDrop('magnet',enemy.x-40,enemy.y);}
    if(enemy.swarm&&this.special?.kind==='swarm'&&this.special.active){this.special.remaining--;this.updateEventBar();}
    enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);
@@ -285,6 +346,7 @@ class Meadow extends Phaser.Scene{
   const mx=dashing?this.dashDirection.x:dx,my=dashing?this.dashDirection.y:dy;
   const speed=dashing?780:220*this.moveMultiplier;
   this.player.x=clamp(this.player.x+mx*speed*dt,30,WORLD-30);this.player.y=clamp(this.player.y+my*speed*dt,30,WORLD-30);
+  this.updateTerrain();
   const minute=Math.floor((now-this.startTime)/60000);
   if(minute>=5&&minute<=25&&minute%5===0&&this.eventIndex<minute/5){this.eventIndex=minute/5;this.prepareEvent(minute);}
   if(this.special&&!this.special.active&&now>=this.warningUntil)this.beginEvent();
@@ -341,7 +403,7 @@ class Meadow extends Phaser.Scene{
    {id:'movement',title:'Szybkość ruchu',level:Math.round((this.moveMultiplier-1)*20),max:10,effect:'+5%'},
    {id:'pickup',title:'Zasięg zbierania EXP',level:Math.ceil((this.pickupRadius-37)/50),max:5,effect:'+50 px'},
    {id:'health',title:'Maksymalne HP',level:this.maxHealth-5,max:5,effect:'+1 HP (leczy)'},
-   {id:'potion',title:'Mikstury zdrowia',level:this.potionLevel,max:5,effect:'+1% szansy na miksturę (pełne HP)'},
+   {id:'potion',title:'Mikstury zdrowia',level:this.potionLevel,max:5,effect:'+0,5% szansy na miksturę (pełne HP)'},
    {id:'multishot',title:'Wielostrzał',level:this.multishot-1,max:5,effect:'+1 strzała na dzielnik'}
   ];
  }
@@ -357,8 +419,8 @@ class Meadow extends Phaser.Scene{
    ['Zasięg ataku '+rank('range'),this.attackRange+' px'],
    ['Zasięg zbierania EXP '+rank('pickup'),this.pickupRadius+' px'],
    ['Wielostrzał '+rank('multishot'),this.multishot+' strzał na dzielnik'],
-   ['Mikstury zdrowia '+rank('potion'),this.potionLevel+'% szansy'],
-   ['Magnes EXP','1% szansy']
+   ['Mikstury zdrowia '+rank('potion'),(this.potionLevel*.5).toFixed(1).replace('.',',')+'% szansy'],
+   ['Magnes EXP','0,5% szansy']
   ];
  }
  renderStats(){
