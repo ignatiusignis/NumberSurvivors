@@ -1,4 +1,4 @@
-// Number Survivors 0.1.1 — pierwsza łąka, prototyp mechanik
+// Number Survivors 0.1.2 — pierwsza łąka, prototyp mechanik
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=3200;
 const COSTS=[2,4,6,10,20,30,40,50,60,70,80,90];
@@ -18,14 +18,14 @@ class Meadow extends Phaser.Scene{
   // Stałe elementy HUD: paski w lewym górnym rogu, dzielniki i unik na dole.
   const ui=(obj)=>obj.setScrollFactor(0).setDepth(100);
   const txt=(x,y,s,size=16)=>ui(this.add.text(x,y,s,{fontFamily:'Arial',fontSize:size+'px',fontStyle:'bold',color:'#ffffff',stroke:'#233c27',strokeThickness:3}));
-  ui(this.add.rectangle(16,15,222,24,0x25352b,.86).setOrigin(0));
+  this.hpBackground=ui(this.add.rectangle(16,15,222,24,0x25352b,.86).setOrigin(0));
   this.hpBar=ui(this.add.rectangle(20,19,214,16,0x50c46b).setOrigin(0));
   this.hpLabel=txt(25,18,'HP',14);
-  ui(this.add.rectangle(16,44,222,19,0x25352b,.86).setOrigin(0));
+  this.expBackground=ui(this.add.rectangle(16,44,222,19,0x25352b,.86).setOrigin(0));
   this.expBar=ui(this.add.rectangle(20,48,214,11,0xe2b84e).setOrigin(0));
   this.levelLabel=txt(247,44,'Poziom 1',15);
   this.timeLabel=txt(848,15,'0:00',19);
-  ui(this.add.rectangle(480,551,726,78,0x182b20,.86).setStrokeStyle(2,0x63825a));
+  this.bottomPanel=ui(this.add.rectangle(480,551,726,78,0x182b20,.86).setStrokeStyle(2,0x63825a));
   this.primeButtons=PRIMES.map((p,i)=>{
    const x=154+i*72;
    const bg=ui(this.add.rectangle(x,550,62,56,0x59615b).setStrokeStyle(2,0x89938a));
@@ -37,8 +37,36 @@ class Meadow extends Phaser.Scene{
   this.dashLabel=txt(783,535,'SPACJA',16).setOrigin(.5,0);
   this.dashHint=txt(783,558,'UNIK',12).setOrigin(.5,0);
   this.input.keyboard.on('keydown',e=>{const i=Number(e.key)-1;if(i>=0&&i<8){const p=PRIMES[i];if(!this.active.includes(p)){this.active.push(p);const slots=this.level>=40?3:this.level>=20?2:1;while(this.active.length>slots)this.active.shift();}}});
-  this.events.on('shutdown',()=>this.input.keyboard.removeAllListeners('keydown'));
+  this.layoutHUD(this.scale.width,this.scale.height);
+  this.scale.on('resize',this.onGameResize,this);
+  this.events.once('shutdown',()=>{this.input.keyboard.removeAllListeners('keydown');this.scale.off('resize',this.onGameResize,this);});
   this.spawnWave(2);this.lastSpawn=this.time.now;
+ }
+ onGameResize(gameSize){this.layoutHUD(gameSize.width,gameSize.height);}
+ layoutHUD(width,height){
+  // Współrzędne świata są w pikselach gry. Skaluje się tylko HUD na wąskich ekranach.
+  const s=Math.min(1,width/960);
+  const left=12,top=12;
+  this.timeLabel.setPosition(width-80*s,top).setScale(s);
+  this.levelLabel.setPosition(247*s,44*s).setScale(s);
+  this.hpBar.setPosition(20*s,19*s).setScale(s);
+  this.expBar.setPosition(20*s,48*s).setScale(s);
+  this.hpLabel.setPosition(25*s,18*s).setScale(s);
+  // Elementy tła pasków są przechowywane osobno w wersji 0.1.2.
+  this.hpBackground.setPosition(16*s,15*s).setScale(s);
+  this.expBackground.setPosition(16*s,44*s).setScale(s);
+  const center=width/2, y=height-49*s;
+  this.bottomPanel.setPosition(center,y).setScale(s);
+  this.primeButtons.forEach((b,i)=>{
+   const x=center+(-326+i*72)*s;
+   b.bg.setPosition(x,y).setScale(s);
+   b.key.setPosition(x-24*s,y-22*s).setScale(s);
+   b.label.setPosition(x,y-7*s).setScale(s);
+  });
+  const dx=center+303*s;
+  this.dashBox.setPosition(dx,y).setScale(s);
+  this.dashLabel.setPosition(dx,y-15*s).setScale(s);
+  this.dashHint.setPosition(dx,y+8*s).setScale(s);
  }
  makeEnemy(n,x,y){
   const size=19+factorTypes(n)*7;
@@ -53,8 +81,11 @@ class Meadow extends Phaser.Scene{
   const minute=Math.floor((this.time.now-this.startTime)/60000);
   const pool=minute===0?[8]:minute===1?[8,12]:[12,16,24];
   for(let i=0;i<count;i++){
-   const angle=Math.random()*Math.PI*2,dist=580;
-   const x=clamp(this.player.x+Math.cos(angle)*dist,40,WORLD-40),y=clamp(this.player.y+Math.sin(angle)*dist,40,WORLD-40);
+   const halfW=this.scale.width/2,halfH=this.scale.height/2,margin=90;
+   const side=Math.floor(Math.random()*4),offset=Math.random()*2-1;
+   const ox=side===0?-(halfW+margin):side===1?(halfW+margin):offset*halfW;
+   const oy=side===2?-(halfH+margin):side===3?(halfH+margin):offset*halfH;
+   const x=clamp(this.player.x+ox,40,WORLD-40),y=clamp(this.player.y+oy,40,WORLD-40);
    this.makeEnemy(pool[Math.floor(Math.random()*pool.length)],x,y);
   }
  }
@@ -121,4 +152,10 @@ class Meadow extends Phaser.Scene{
   this.dashBox.setFillStyle(dashReady?0x278a4a:0x515b55).setStrokeStyle(2,dashReady?0x8cde9b:0x7d8980);
  }
 }
-new Phaser.Game({type:Phaser.AUTO,parent:'game',width:960,height:600,backgroundColor:'#79b65d',render:{pixelArt:true},scene:[Meadow]});
+const host=document.getElementById('game');
+const game=new Phaser.Game({type:Phaser.AUTO,parent:'game',width:host.clientWidth,height:host.clientHeight,scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.NO_CENTER},backgroundColor:'#79b65d',render:{pixelArt:true},scene:[Meadow]});
+const observer=new ResizeObserver(()=>{
+ const w=Math.round(host.clientWidth),h=Math.round(host.clientHeight);
+ if(w>0&&h>0&&(game.scale.width!==w||game.scale.height!==h))game.scale.resize(w,h);
+});
+observer.observe(host);
