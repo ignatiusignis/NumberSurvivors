@@ -1,6 +1,6 @@
 # Number Survivors — dokument projektu
 
-**Wersja:** 0.3  
+**Wersja:** 0.4  
 **Status:** zatwierdzone założenia projektu; szczegóły wskazane jako otwarte pozostają do opracowania  
 **Data aktualizacji:** 18 listopada 2026
 
@@ -171,11 +171,13 @@ Ulepszenia specjalne mogą być związane z konkretnymi dzielnikami. Szczegóły
 
 ## 12. Rodziny przeciwników, liczby i fale
 
-### Wygląd
-- Wariant **C**: fantastyczne stworki o prostych, geometrycznych korpusach, z **dużą, kontrastową liczbą na ciele**.
-- Cztery podstawowe rodziny, od łatwiejszych do trudniejszych: **szczury, pająki, nietoperze, wilki**.
-- W obrębie rodziny można używać wariantów kolorystycznych i kilku bazowych modeli.
-- Liczba pozostaje czytelna w ruchu; docelowe grafiki nie są emoji.
+### Wygląd — zatwierdzony kierunek
+- Proste, sympatyczne, zaokrąglone stworki **w stylu slime**, o wyraźnych konturach i **dużej liczbie w samym środku ciała**, bez osobnej tabliczki.
+- Cztery rodziny rozpoznawalne po prostych dodatkach: **szczur** (uszy, ogon), **pająk** (osiem nóg), **nietoperz** (skrzydła, uszy), **wilk** (uszy, kły, ogon).
+- Kolory i niewielkie różnice wyglądu mogą różnicować warianty. Grafika ma pozostać czytelna także przy tłumie wrogów.
+- **Wielkość przeciwnika zależy wyłącznie od liczby RÓŻNYCH czynników pierwszych liczby początkowej**, a nie od liczby wszystkich trafień: np. 128 (tylko czynnik 2) jest mały, 72 (2 i 3) średni, 210 (2, 3, 5, 7) duży. Bossowie mogą być wyjątkowo więksi.
+- **Rozmiar nie zmienia się po trafieniach**. Zmienia się tylko liczba na ciele, np. **8 → 4 → 2 → 1** po kolejnych trafieniach dzielnikiem 2; przy osiągnięciu 1 wróg znika i zostawia złotą jedynkę EXP.
+- Trafienie może powodować subtelny błysk i krótkie wzdrygnięcie, bez zasłaniania liczby.
 
 ### Ograniczenia generatora
 - Zwykły przeciwnik ma liczbę **nie większą niż 9999** (maksymalnie cztery cyfry).
@@ -193,9 +195,18 @@ Ulepszenia specjalne mogą być związane z konkretnymi dzielnikami. Szczegóły
 - Przeciwników z bieżącej puli można przenosić poza ekran przed kierunek ruchu gracza, zgodnie z zasadami odciążania symulacji.
 - Liczbę jednostek nadal kontroluje **budżet trudności**, a nie tylko liczba modeli czy rodzajów.
 
-## 13. Numeracja wersji
+## 13. Wizualizacja ataku — zatwierdzone
 
-**Dokument projektu** jest obecnie w wersji **0.3**; jest to numer rewizji założeń, nie numer wydania gry.
+- Łotrzyk strzela **zwykłymi, małymi, cienkimi strzałami**, bez liczb na pociskach, smug i nadmiernych rozbłysków.
+- Wybrane dzielniki widać **wyłącznie w interfejsie aktywnych slotów**.
+- Każdy slot automatycznie wyszukuje najbliższego wroga podzielnego przez przypisany dzielnik.
+- Przy trafieniu **liczba na ciele wroga natychmiast zmienia się** na wynik dzielenia.
+- Przy trzech slotach i dużej szybkości ataku strzały nie mogą zasłaniać planszy. Używamy puli obiektów (object pooling), a w razie potrzeby ograniczamy liczbę rysowanych pocisków bez zmiany liczby rozliczonych ataków.
+- Szczegółowe parametry strzałów i częstotliwość ataku ustalimy podczas testów.
+
+## 14. Numeracja wersji
+
+**Dokument projektu** jest obecnie w wersji **0.4**; jest to numer rewizji założeń, nie numer wydania gry.
 
 **Gra** będzie używała numeracji **MAJOR.MINOR.PATCH**, np.:
 - **0.1.0** — pierwszy grywalny prototyp;
@@ -205,9 +216,9 @@ Ulepszenia specjalne mogą być związane z konkretnymi dzielnikami. Szczegóły
 
 Numer każdej części może być większy niż 9.
 
-## 14. Otwarte decyzje na kolejne etapy
+## 15. Otwarte decyzje na kolejne etapy
 
-1. Wygląd i animacje bohatera, przeciwników oraz Multiplosa.
+1. Finalne sprite'y i animacje zatwierdzonego łotrzyka oraz slime'owych przeciwników; wygląd Multiplosa.
 2. Dokładne zachowanie broni, tempo ataków i wybór celów.
 3. Harmonogram pojawiania się kolejnych dzielników i trudniejszych przeciwników.
 4. Liczba, parametry i dobór ulepszeń.
@@ -219,4 +230,4 @@ Numer każdej części może być większy niż 9.
 
 ---
 
-**Historia decyzji:** v0.1 — fundamenty matematyki i uzbrojenia; v0.2 — fabuła, świat fantasy, 30-minutowy cel, eksploracja, system EXP, magnes, budżet przeciwników, szerokie przejścia w całym świecie, lochy i Multiplos; v0.3 — łotrzyk i unik, przyszłe klasy, modele wrogów, ograniczenia liczb, pule minutowe, optymalizacja niedobitków i numeracja wydań.
+**Historia decyzji:** v0.1 — fundamenty matematyki i uzbrojenia; v0.2 — fabuła, świat fantasy, 30-minutowy cel, eksploracja, system EXP, magnes, budżet przeciwników, szerokie przejścia w całym świecie, lochy i Multiplos; v0.3 — łotrzyk i unik, przyszłe klasy, modele wrogów, ograniczenia liczb, pule minutowe, optymalizacja niedobitków i numeracja wydań; v0.4 — slime'owe rodziny wrogów, wielkość od liczby różnych czynników pierwszych, zmiana liczby po trafieniu i dyskretne strzały.
