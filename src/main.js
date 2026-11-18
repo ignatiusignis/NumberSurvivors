@@ -1,4 +1,4 @@
-// Number Survivors 0.1.0 — pierwsza łąka, prototyp mechanik
+// Number Survivors 0.1.1 — pierwsza łąka, prototyp mechanik
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=3200;
 const COSTS=[2,4,6,10,20,30,40,50,60,70,80,90];
@@ -14,9 +14,28 @@ class Meadow extends Phaser.Scene{
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
-  this.active=[2];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=this.time.now;this.lastDash=-10000;this.invulnUntil=0;this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
-  this.hud=this.add.text(12,12,'',{fontFamily:'Arial',fontSize:'18px',color:'#fff',stroke:'#24451d',strokeThickness:4}).setScrollFactor(0).setDepth(100);
-  this.help=this.add.text(12,94,'',{fontFamily:'Arial',fontSize:'14px',color:'#fff',stroke:'#24451d',strokeThickness:3}).setScrollFactor(0).setDepth(100);
+  this.active=[2];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=this.time.now;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
+  // Stałe elementy HUD: paski w lewym górnym rogu, dzielniki i unik na dole.
+  const ui=(obj)=>obj.setScrollFactor(0).setDepth(100);
+  const txt=(x,y,s,size=16)=>ui(this.add.text(x,y,s,{fontFamily:'Arial',fontSize:size+'px',fontStyle:'bold',color:'#ffffff',stroke:'#233c27',strokeThickness:3}));
+  ui(this.add.rectangle(16,15,222,24,0x25352b,.86).setOrigin(0));
+  this.hpBar=ui(this.add.rectangle(20,19,214,16,0x50c46b).setOrigin(0));
+  this.hpLabel=txt(25,18,'HP',14);
+  ui(this.add.rectangle(16,44,222,19,0x25352b,.86).setOrigin(0));
+  this.expBar=ui(this.add.rectangle(20,48,214,11,0xe2b84e).setOrigin(0));
+  this.levelLabel=txt(247,44,'Poziom 1',15);
+  this.timeLabel=txt(848,15,'0:00',19);
+  ui(this.add.rectangle(480,551,726,78,0x182b20,.86).setStrokeStyle(2,0x63825a));
+  this.primeButtons=PRIMES.map((p,i)=>{
+   const x=154+i*72;
+   const bg=ui(this.add.rectangle(x,550,62,56,0x59615b).setStrokeStyle(2,0x89938a));
+   const key=txt(x-24,528,String(i+1),12);
+   const label=txt(x,543,String(p),23).setOrigin(.5,0);
+   return {bg,key,label};
+  });
+  this.dashBox=ui(this.add.rectangle(783,550,100,56,0x339b54).setStrokeStyle(2,0x91d6a3));
+  this.dashLabel=txt(783,535,'SPACJA',16).setOrigin(.5,0);
+  this.dashHint=txt(783,558,'UNIK',12).setOrigin(.5,0);
   this.input.keyboard.on('keydown',e=>{const i=Number(e.key)-1;if(i>=0&&i<8){const p=PRIMES[i];if(!this.active.includes(p)){this.active.push(p);const slots=this.level>=40?3:this.level>=20?2:1;while(this.active.length>slots)this.active.shift();}}});
   this.events.on('shutdown',()=>this.input.keyboard.removeAllListeners('keydown'));
   this.spawnWave(2);this.lastSpawn=this.time.now;
@@ -62,11 +81,13 @@ class Meadow extends Phaser.Scene{
   const len=Math.hypot(dx,dy);
   if(len){dx/=len;dy/=len;this.lastMove.set(dx,dy);}
   const dash=this.keys.SPACE.isDown&&now-this.lastDash>4000;
-  if(dash){this.lastDash=now;this.invulnUntil=now+220;}
-  const speed=now<this.invulnUntil?780:220;
-  this.player.x=clamp(this.player.x+dx*speed*dt,30,WORLD-30);this.player.y=clamp(this.player.y+dy*speed*dt,30,WORLD-30);
+  if(dash){this.lastDash=now;this.dashUntil=now+220;this.invulnUntil=now+220;this.dashDirection.copy(this.lastMove);}
+  const dashing=now<this.dashUntil;
+  const mx=dashing?this.dashDirection.x:dx,my=dashing?this.dashDirection.y:dy;
+  const speed=dashing?780:220;
+  this.player.x=clamp(this.player.x+mx*speed*dt,30,WORLD-30);this.player.y=clamp(this.player.y+my*speed*dt,30,WORLD-30);
   const minute=Math.floor((now-this.startTime)/60000);
-  if(minute===0){if(now-this.lastSpawn>=20000&&this.enemies.length<20){this.spawnWave(2);this.lastSpawn=now;}}
+  if(minute===0){if(now-this.lastSpawn>=10000&&this.enemies.length<30){this.spawnWave(2);this.lastSpawn=now;}}
   else if(now-this.lastSpawn>2500&&this.enemies.length<Math.min(12+minute*2,45)){this.spawnWave(2);this.lastSpawn=now;}
   const cam=this.cameras.main;const bound=cam.worldView;
   for(const enemy of [...this.enemies]){
@@ -86,9 +107,18 @@ class Meadow extends Phaser.Scene{
    if(progress===1){a.line.destroy();this.arrows.splice(this.arrows.indexOf(a),1);this.hit(a.target,a.prime);}
   }
   for(const t of [...this.tokens])if(Math.hypot(t.x-this.player.x,t.y-this.player.y)<37){t.view.destroy();this.tokens.splice(this.tokens.indexOf(t),1);this.exp++;this.total++;if(this.exp>=nextCost(this.level)){this.exp-=nextCost(this.level);this.level++;}}
-  const slots=this.level>=40?3:this.level>=20?2:1;
-  this.hud.setText('❤ '+this.health+'   Poziom '+this.level+'   EXP '+this.exp+'/'+nextCost(this.level)+'   Czas '+Math.floor((now-this.startTime)/60000)+':'+String(Math.floor((now-this.startTime)/1000)%60).padStart(2,'0'));
-  this.help.setText('Dzielniki: ['+this.active.join(', ')+']   Sloty: '+this.active.length+'/'+slots+'   Pokonani: '+this.total+'   Unik: '+(now-this.lastDash>4000?'gotowy':'odnawia się'));
+  this.hpBar.width=214*clamp(this.health/5,0,1);
+  this.hpLabel.setText('HP  '+this.health+'/5');
+  this.expBar.width=214*clamp(this.exp/nextCost(this.level),0,1);
+  this.levelLabel.setText('Poziom '+this.level);
+  this.timeLabel.setText(Math.floor((now-this.startTime)/60000)+':'+String(Math.floor((now-this.startTime)/1000)%60).padStart(2,'0'));
+  this.primeButtons.forEach((button,i)=>{
+   const selected=this.active.includes(PRIMES[i]);
+   button.bg.setFillStyle(selected?0x278a4a:0x515b55).setStrokeStyle(2,selected?0x8cde9b:0x7d8980);
+   button.label.setColor(selected?'#ffffff':'#c0c8c1');
+  });
+  const dashReady=now-this.lastDash>=4000;
+  this.dashBox.setFillStyle(dashReady?0x278a4a:0x515b55).setStrokeStyle(2,dashReady?0x8cde9b:0x7d8980);
  }
 }
 new Phaser.Game({type:Phaser.AUTO,parent:'game',width:960,height:600,backgroundColor:'#79b65d',render:{pixelArt:true},scene:[Meadow]});
