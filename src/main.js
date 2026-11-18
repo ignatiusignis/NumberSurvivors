@@ -1,8 +1,10 @@
-// Number Survivors 0.3.3 — sześć regionów i minimapa
+// Number Survivors 0.3.4 — zamek, lochy i teleportacja testowa
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
 const hash=(x,y,k=0)=>{let n=Math.imul(x+1297,374761393)^Math.imul(y+7919,668265263)^Math.imul(k+31,2246822519);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967296;};
+const CASTLE={left:8200,right:10400,top:900,bottom:3700};
+const DUNGEON={left:10400,right:12500,top:900,bottom:3700};
 const REGIONS=[
  {id:6,name:'Czerwone pustkowia',x:2500,y:2250,color:[147,69,59],kind:'badlands'},
  {id:5,name:'Suche równiny',x:2300,y:5850,color:[168,125,82],kind:'plains'},
@@ -20,10 +22,15 @@ const regionScores=(x,y)=>{
  }).sort((a,b)=>a.score-b.score);
  return scores;
 };
-const regionAt=(x,y)=>regionScores(x,y)[0].region;
+const regionAt=(x,y)=>{
+ if(x>=CASTLE.left&&x<CASTLE.right&&y>=CASTLE.top&&y<CASTLE.bottom)return {id:7,name:'Zamek',kind:'castle',color:[111,113,119]};
+ if(x>=DUNGEON.left&&x<DUNGEON.right&&y>=DUNGEON.top&&y<DUNGEON.bottom)return {id:8,name:'Lochy',kind:'dungeon',color:[55,56,69]};
+ return regionScores(x,y)[0].region;
+};
 const biomeWeights=(x,y)=>{
  const scores=regionScores(x,y);
- const weights={meadow:0,swamp:0,thicket:0,forest:0,plains:0,badlands:0};
+ const weights={meadow:0,swamp:0,thicket:0,forest:0,plains:0,badlands:0,castle:0,dungeon:0};
+ const special=regionAt(x,y);if(special.kind==='castle'||special.kind==='dungeon'){weights[special.kind]=1;return weights;}
  const a=scores[0],b=scores[1];
  const blend=clamp((b.score-a.score)/.22,0,1);
  weights[a.region.kind]=.5+.5*blend;
@@ -39,6 +46,8 @@ class Meadow extends Phaser.Scene{
  create(){
   this.cameras.main.setBackgroundColor('#79b65d');
   this.terrainChunks=new Map();this.obstacleChunks=new Map();
+  const minimap=document.getElementById('world-minimap');
+  minimap.addEventListener('click',event=>this.teleportFromMap(event));
   this.player=this.add.container(5850,9750).setDepth(10);
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
@@ -76,6 +85,57 @@ class Meadow extends Phaser.Scene{
   this.updateTerrain();
  }
  biomeAt(x,y){return regionAt(x,y).kind;}
+ inRect(x,y,r){return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;}
+ dungeonOpen(x,y){
+  // Szerokie skrzyżowania i korytarze w układzie kratowym.
+  const horizontal=[1500,2300,3100].some(yy=>Math.abs(y-yy)<110);
+  const vertical=[10850,11600,12200].some(xx=>Math.abs(x-xx)<110);
+  return horizontal||vertical;
+ }
+ structureBlocked(x,y,radius=0){
+  const x0=x-radius,x1=x+radius,y0=y-radius,y1=y+radius;
+  const castleOuter=x1>CASTLE.left&&x0<CASTLE.right&&y1>CASTLE.top&&y0<CASTLE.bottom;
+  const dungeonOuter=x1>DUNGEON.left&&x0<DUNGEON.right&&y1>DUNGEON.top&&y0<DUNGEON.bottom;
+  if(castleOuter){
+   // Brama południowa i przejście do lochów na wschodzie.
+   if(x0<CASTLE.left+75&&x1>CASTLE.left&&y1>CASTLE.top&&y0<CASTLE.bottom)return true;
+   if(y0<CASTLE.top+75&&y1>CASTLE.top)return true;
+   if(y1>CASTLE.bottom-75&&y0<CASTLE.bottom&&Math.abs(x-9300)>190)return true;
+   if(x1>CASTLE.right-75&&x0<CASTLE.right&&Math.abs(y-2300)>170)return true;
+   // Dziedziniec, dwa skrzydła z drzwiami pośrodku.
+   if(x1>8800&&x0<8900&&y1>1450&&y0<3150&&Math.abs(y-2300)>180)return true;
+   if(x1>9700&&x0<9800&&y1>1450&&y0<3150&&Math.abs(y-2300)>180)return true;
+   if(y1>1450&&y0<1540&&x1>8800&&x0<9800&&Math.abs(x-9300)>170)return true;
+  }
+  if(dungeonOuter){
+   if(y0<DUNGEON.top+75&&y1>DUNGEON.top)return true;
+   if(y1>DUNGEON.bottom-75&&y0<DUNGEON.bottom)return true;
+   if(x1>DUNGEON.right-75&&x0<DUNGEON.right)return true;
+   if(x0<DUNGEON.left+75&&x1>DUNGEON.left&&Math.abs(y-2300)>170)return true;
+   if(x>DUNGEON.left+75&&x<DUNGEON.right-75&&y>DUNGEON.top+75&&y<DUNGEON.bottom-75){
+    for(const ox of [x-radius,x+radius])for(const oy of [y-radius,y+radius])if(!this.dungeonOpen(ox,oy))return true;
+   }
+  }
+  return false;
+ }
+ teleportFromMap(event){
+  if(!this.manualPause)return;
+  const canvas=event.currentTarget,rect=canvas.getBoundingClientRect();
+  const x=clamp((event.clientX-rect.left)/rect.width*WORLD,30,WORLD-30);
+  const y=clamp((event.clientY-rect.top)/rect.height*WORLD,30,WORLD-30);
+  let target=null;
+  if(!this.blocked(x,y,17))target={x,y};
+  else for(let radius=30;radius<=600&&!target;radius+=30)for(let a=0;a<32;a++){
+   const angle=a*Math.PI/16,tx=clamp(x+Math.cos(angle)*radius,30,WORLD-30),ty=clamp(y+Math.sin(angle)*radius,30,WORLD-30);
+   if(!this.blocked(tx,ty,17)){target={x:tx,y:ty};break;}
+  }
+  const message=document.getElementById('teleport-status');
+  if(!target){message.textContent='Nie znaleziono bezpiecznego miejsca w pobliżu.';return;}
+  this.player.setPosition(target.x,target.y);
+  this.cameras.main.centerOn(target.x,target.y);
+  this.updateTerrain();this.drawMinimap();
+  message.textContent='Przeniesiono do: '+Math.round(target.x)+', '+Math.round(target.y)+' — naciśnij P, aby grać.';
+ }
  // Rzeka odcina południe i środek; przejście prowadzi północą.
  riverX(y){return 8700+Math.sin(y/540+REGION_SEED)*150;}
  riverAt(x,y,radius=0){return y>8100&&y<11700&&Math.abs(x-this.riverX(y))<145+radius;}
@@ -91,7 +151,7 @@ class Meadow extends Phaser.Scene{
    const x=ox+90+hash(cx,cy,i*11+101)*(CHUNK-180);
    const y=oy+90+hash(cx,cy,i*11+102)*(CHUNK-180);
    const kind=this.biomeAt(x,y),roll=hash(cx,cy,i*11+103);
-   if(kind==='meadow'||kind==='plains'||kind==='badlands'||this.barrierAt(x,y,150))continue;
+   if(kind==='meadow'||kind==='plains'||kind==='badlands'||kind==='castle'||kind==='dungeon'||this.barrierAt(x,y,150))continue;
    if(kind==='swamp'&&roll>.55)continue;
    if(kind==='thicket'&&roll>.72)continue;
    if(kind==='forest'&&roll>.82)continue;
@@ -109,7 +169,7 @@ class Meadow extends Phaser.Scene{
   return all;
  }
  blocked(x,y,radius){
-  if(x<radius||y<radius||x>WORLD-radius||y>WORLD-radius||this.barrierAt(x,y,radius))return true;
+  if(x<radius||y<radius||x>WORLD-radius||y>WORLD-radius||this.barrierAt(x,y,radius)||this.structureBlocked(x,y,radius))return true;
   return this.nearbyObstacles(x,y).some(o=>Math.hypot(x-o.x,y-o.y)<o.radius+radius);
  }
  moveAround(entity,vx,vy,dt,speed,radius){
@@ -162,7 +222,7 @@ class Meadow extends Phaser.Scene{
    const x=ox+ix*64,y=oy+iy*64;
    const noise=(hash(cx*10+ix,cy*10+iy,2)-.5)*.24;
    const b=biomeWeights(x+32,y+32);
-   const rgb={r:Math.round(130*b.meadow+76*b.swamp+82*b.thicket+48*b.forest+168*b.plains+147*b.badlands),g:Math.round(189*b.meadow+134*b.swamp+141*b.thicket+99*b.forest+125*b.plains+69*b.badlands),b:Math.round(71*b.meadow+140*b.swamp+66*b.thicket+55*b.forest+82*b.plains+59*b.badlands)};
+   const rgb={r:Math.round(130*b.meadow+76*b.swamp+82*b.thicket+48*b.forest+168*b.plains+147*b.badlands+111*b.castle+55*b.dungeon),g:Math.round(189*b.meadow+134*b.swamp+141*b.thicket+99*b.forest+125*b.plains+69*b.badlands+113*b.castle+56*b.dungeon),b:Math.round(71*b.meadow+140*b.swamp+66*b.thicket+55*b.forest+82*b.plains+59*b.badlands+119*b.castle+69*b.dungeon)};
    const n=noise*26;rgb.r=clamp(rgb.r+n,0,255);rgb.g=clamp(rgb.g+n,0,255);rgb.b=clamp(rgb.b+n,0,255);
    const color=Phaser.Display.Color.GetColor(rgb.r,rgb.g,rgb.b);
    g.fillStyle(color,1).fillRect(x,y,65,65);
@@ -196,6 +256,17 @@ class Meadow extends Phaser.Scene{
    if(xx>4200&&xx<7900&&fy+165>=oy&&fy-165<=oy+CHUNK){
     g.fillStyle(0x1e4628).fillRect(xx,fy-165,33,330);
     for(let j=0;j<5;j++)g.fillStyle(j%2?0x275a30:0x356e35).fillCircle(xx+16,fy-145+j*70,29);
+   }
+  }
+  // Mury i korytarze są rysowane tym samym testem, który steruje kolizją.
+  for(let yy=oy;yy<oy+CHUNK;yy+=32)for(let xx=ox;xx<ox+CHUNK;xx+=32){
+   const kind=this.biomeAt(xx+16,yy+16);
+   if(kind!=='castle'&&kind!=='dungeon')continue;
+   if(this.structureBlocked(xx+16,yy+16,4)){
+    g.fillStyle(kind==='castle'?0x555761:0x272832).fillRect(xx,yy,33,33);
+    g.lineStyle(1,kind==='castle'?0x81838c:0x424452,.6).strokeRect(xx,yy,32,32);
+   }else if(kind==='dungeon'){
+    g.lineStyle(1,0x777884,.23).strokeRect(xx,yy,32,32);
    }
   }
   for(const o of this.obstaclesFor(cx,cy)){
@@ -243,14 +314,19 @@ class Meadow extends Phaser.Scene{
   for(let py=0;py<h;py+=cell)for(let px=0;px<w;px+=cell){
    const x=(px+cell/2)/w*WORLD,y=(py+cell/2)/h*WORLD;
    const b=biomeWeights(x,y);
-   const rgb=[0,1,2].map(i=>Math.round(REGIONS.reduce((sum,r)=>sum+r.color[i]*b[r.kind],0)));
+   const rgb=[0,1,2].map(i=>Math.round(REGIONS.reduce((sum,r)=>sum+r.color[i]*b[r.kind],0)+[111,113,119][i]*b.castle+[55,56,69][i]*b.dungeon));
    ctx.fillStyle='rgb('+rgb.join(',')+')';ctx.fillRect(px,py,cell,cell);
   }
   ctx.fillStyle='#327f9b';ctx.strokeStyle='#a5d6df';ctx.lineWidth=1;
   for(let y=8100;y<11700;y+=35){const x=this.riverX(y);ctx.fillRect((x-145)/WORLD*w,y/WORLD*h,290/WORLD*w,36/WORLD*h);}
   ctx.fillStyle='#173f24';for(let x=4200;x<7900;x+=35){const y=7400+Math.sin(x/650+REGION_SEED)*115;ctx.fillRect(x/WORLD*w,(y-165)/WORLD*h,36/WORLD*w,330/WORLD*h);}
+  ctx.fillStyle='#777983';ctx.fillRect(CASTLE.left/WORLD*w,CASTLE.top/WORLD*h,(CASTLE.right-CASTLE.left)/WORLD*w,(CASTLE.bottom-CASTLE.top)/WORLD*h);
+  ctx.fillStyle='#383943';ctx.fillRect(DUNGEON.left/WORLD*w,DUNGEON.top/WORLD*h,(DUNGEON.right-DUNGEON.left)/WORLD*w,(DUNGEON.bottom-DUNGEON.top)/WORLD*h);
+  ctx.strokeStyle='#c6c9d0';ctx.lineWidth=2;ctx.strokeRect(CASTLE.left/WORLD*w,CASTLE.top/WORLD*h,(CASTLE.right-CASTLE.left)/WORLD*w,(CASTLE.bottom-CASTLE.top)/WORLD*h);
+  ctx.strokeStyle='#b7b9c6';for(const y of [1500,2300,3100]){ctx.beginPath();ctx.moveTo(DUNGEON.left/WORLD*w,y/WORLD*h);ctx.lineTo(DUNGEON.right/WORLD*w,y/WORLD*h);ctx.stroke();}
+  for(const x of [10850,11600,12200]){ctx.beginPath();ctx.moveTo(x/WORLD*w,DUNGEON.top/WORLD*h);ctx.lineTo(x/WORLD*w,DUNGEON.bottom/WORLD*h);ctx.stroke();}
   ctx.font='bold 14px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
-  for(const region of REGIONS){const px=region.x/WORLD*w,py=region.y/WORLD*h;ctx.lineWidth=3;ctx.strokeStyle='#18251e';ctx.strokeText(String(region.id),px,py);ctx.fillStyle='#ffffff';ctx.fillText(String(region.id),px,py);}
+  for(const region of [...REGIONS,{id:7,x:9200,y:2350},{id:8,x:11500,y:2350}]){const px=region.x/WORLD*w,py=region.y/WORLD*h;ctx.lineWidth=3;ctx.strokeStyle='#18251e';ctx.strokeText(String(region.id),px,py);ctx.fillStyle='#ffffff';ctx.fillText(String(region.id),px,py);}
   const px=this.player.x/WORLD*w,py=this.player.y/WORLD*h;
   ctx.beginPath();ctx.arc(px,py,7,0,Math.PI*2);ctx.fillStyle='#ffe35b';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#151515';ctx.stroke();
  }
