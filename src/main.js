@@ -1,4 +1,4 @@
-// Number Survivors 0.1.3 — pierwsza łąka, prototyp mechanik
+// Number Survivors 0.2.0 — pierwsza łąka, prototyp mechanik
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=3200;
 const COSTS=[2,4,6,10,20,30,40,50,60,70,80,90];
@@ -14,7 +14,7 @@ class Meadow extends Phaser.Scene{
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
-  this.active=[2];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=this.time.now;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
+  this.active=[2];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.regeneration=false;this.lastRegen=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
   // Stałe elementy HUD: paski w lewym górnym rogu, dzielniki i unik na dole.
   const ui=(obj)=>obj.setScrollFactor(0).setDepth(100);
   const txt=(x,y,s,size=16)=>ui(this.add.text(x,y,s,{fontFamily:'Arial',fontSize:size+'px',fontStyle:'bold',color:'#ffffff',stroke:'#233c27',strokeThickness:3}));
@@ -36,11 +36,11 @@ class Meadow extends Phaser.Scene{
   this.dashBox=ui(this.add.rectangle(783,550,100,56,0x339b54).setStrokeStyle(2,0x91d6a3));
   this.dashLabel=txt(783,535,'SPACJA',16).setOrigin(.5,0);
   this.dashHint=txt(783,558,'UNIK',12).setOrigin(.5,0);
-  this.input.keyboard.on('keydown',e=>{const i=Number(e.key)-1;if(i>=0&&i<8){const p=PRIMES[i];if(!this.active.includes(p)){this.active.push(p);const slots=this.level>=40?3:this.level>=20?2:1;while(this.active.length>slots)this.active.shift();}}});
+  this.input.keyboard.on('keydown',e=>{if(this.upgradeOpen){if(['1','2','3'].includes(e.key))this.chooseUpgrade(Number(e.key)-1);return;}const i=Number(e.key)-1;if(i>=0&&i<8){const p=PRIMES[i];if(!this.active.includes(p)){this.active.push(p);const slots=this.level>=40?3:this.level>=20?2:1;while(this.active.length>slots)this.active.shift();}}});
   this.layoutHUD(this.scale.width,this.scale.height);
   this.scale.on('resize',this.onGameResize,this);
   this.events.once('shutdown',()=>{this.input.keyboard.removeAllListeners('keydown');this.scale.off('resize',this.onGameResize,this);});
-  this.spawnWave(2);this.lastSpawn=this.time.now;
+  this.spawnWave(2);this.lastSpawn=this.clock;
  }
  onGameResize(gameSize){this.layoutHUD(gameSize.width,gameSize.height);}
  layoutHUD(width,height){
@@ -75,7 +75,7 @@ class Meadow extends Phaser.Scene{
   const tail=this.add.arc(size*.8,size*.6,16,285,90,false,0x76539d).setStrokeStyle(3,0x76539d);
   const label=this.add.text(0,0,String(n),{fontFamily:'Arial',fontSize:size>30?'23px':'19px',fontStyle:'bold',color:'#ffffff',stroke:'#342044',strokeThickness:4}).setOrigin(.5);
   const view=this.add.container(x,y,[tail,...ears,body,label]).setDepth(7);
-  this.enemies.push({n,x,y,size,view,label,body,bornMinute:Math.floor((this.time.now-this.startTime)/60000)});
+  this.enemies.push({n,x,y,size,view,label,body,bornMinute:Math.floor((this.clock-this.startTime)/60000)});
  }
  spawnWave(count){
   const minute=Math.floor((this.time.now-this.startTime)/60000);
@@ -104,7 +104,10 @@ class Meadow extends Phaser.Scene{
    enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);
   }
  }
- update(now,delta){
+ update(frameNow,delta){
+  if(this.upgradeOpen)return;
+  this.clock+=Math.min(delta,50);
+  const now=this.clock;
   if(this.health<=0){this.scene.pause();this.add.text(this.cameras.main.scrollX+400,this.cameras.main.scrollY+250,'KONIEC GRY',{font:'bold 52px Arial',color:'#fff'}).setOrigin(.5);return;}
   const dt=Math.min(delta,50)/1000;
   let dx=Number(this.keys.D.isDown||this.keys.RIGHT.isDown)-Number(this.keys.A.isDown||this.keys.LEFT.isDown);
@@ -115,7 +118,7 @@ class Meadow extends Phaser.Scene{
   if(dash){this.lastDash=now;this.dashUntil=now+220;this.invulnUntil=now+220;this.dashDirection.copy(this.lastMove);}
   const dashing=now<this.dashUntil;
   const mx=dashing?this.dashDirection.x:dx,my=dashing?this.dashDirection.y:dy;
-  const speed=dashing?780:220;
+  const speed=dashing?780:220*this.moveMultiplier;
   this.player.x=clamp(this.player.x+mx*speed*dt,30,WORLD-30);this.player.y=clamp(this.player.y+my*speed*dt,30,WORLD-30);
   const minute=Math.floor((now-this.startTime)/60000);
   if(minute===0){if(now-this.lastSpawn>=10000&&this.enemies.length<30){this.spawnWave(2);this.lastSpawn=now;}}
@@ -126,11 +129,11 @@ class Meadow extends Phaser.Scene{
    if(enemy.bornMinute<minute&&(enemy.x<bound.left-400||enemy.x>bound.right+400||enemy.y<bound.top-300||enemy.y>bound.bottom+300)){enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);continue;}
    // Przeciwnik ściga gracza niezależnie od odległości i rozmiaru okna.
    enemy.x+=(this.player.x-enemy.x)/distance*55*dt;enemy.y+=(this.player.y-enemy.y)/distance*55*dt;enemy.view.setPosition(enemy.x,enemy.y);
-   if(distance<enemy.size+12&&now-this.lastDamage>850&&now>this.invulnUntil){this.health--;this.lastDamage=now;}
+   if(distance<enemy.size+12&&now-this.lastDamage>850&&now>this.invulnUntil){this.health--;this.lastDamage=now;this.lastRegen=now;}
   }
   for(const p of this.active){
-   if(now-(this.lastAttack.get(p)||0)<650)continue;
-   const targets=this.enemies.filter(e=>e.n%p===0&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<450).sort((a,b)=>Phaser.Math.Distance.Between(a.x,a.y,this.player.x,this.player.y)-Phaser.Math.Distance.Between(b.x,b.y,this.player.x,this.player.y));
+   if(now-(this.lastAttack.get(p)||0)<650/this.attackRate)continue;
+   const targets=this.enemies.filter(e=>e.n%p===0&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<this.attackRange).sort((a,b)=>Phaser.Math.Distance.Between(a.x,a.y,this.player.x,this.player.y)-Phaser.Math.Distance.Between(b.x,b.y,this.player.x,this.player.y));
    if(targets.length){this.shoot(targets[0],p,now);this.lastAttack.set(p,now);}
   }
   for(const a of [...this.arrows]){
@@ -138,9 +141,11 @@ class Meadow extends Phaser.Scene{
    a.line.setTo(a.originX+(tx-a.originX)*progress,a.originY+(ty-a.originY)*progress,a.originX+(tx-a.originX)*progress+8,a.originY+(ty-a.originY)*progress+3);
    if(progress===1){a.line.destroy();this.arrows.splice(this.arrows.indexOf(a),1);this.hit(a.target,a.prime);}
   }
-  for(const t of [...this.tokens])if(Math.hypot(t.x-this.player.x,t.y-this.player.y)<37){t.view.destroy();this.tokens.splice(this.tokens.indexOf(t),1);this.exp++;this.total++;if(this.exp>=nextCost(this.level)){this.exp-=nextCost(this.level);this.level++;}}
-  this.hpBar.width=214*clamp(this.health/5,0,1);
-  this.hpLabel.setText('HP  '+this.health+'/5');
+  for(const t of [...this.tokens])if(Math.hypot(t.x-this.player.x,t.y-this.player.y)<this.pickupRadius){t.view.destroy();this.tokens.splice(this.tokens.indexOf(t),1);this.exp++;this.total++;while(this.exp>=nextCost(this.level)){this.exp-=nextCost(this.level);this.level++;this.pendingUpgrades++;}}
+  if(this.regeneration&&this.health<this.maxHealth&&now-Math.max(this.lastDamage,this.lastRegen)>=5000){this.health++;this.lastRegen=now;}
+  if(this.pendingUpgrades>0&&!this.upgradeOpen)this.showUpgrade();
+  this.hpBar.width=214*clamp(this.health/this.maxHealth,0,1);
+  this.hpLabel.setText('HP  '+this.health+'/'+this.maxHealth);
   this.expBar.width=214*clamp(this.exp/nextCost(this.level),0,1);
   this.levelLabel.setText('Poziom '+this.level);
   this.timeLabel.setText(Math.floor((now-this.startTime)/60000)+':'+String(Math.floor((now-this.startTime)/1000)%60).padStart(2,'0'));
@@ -152,7 +157,57 @@ class Meadow extends Phaser.Scene{
   const dashReady=now-this.lastDash>=4000;
   this.dashBox.setFillStyle(dashReady?0x278a4a:0x515b55).setStrokeStyle(2,dashReady?0x8cde9b:0x7d8980);
  }
+ availableUpgrades(){
+  const choices=[
+   {id:'range',title:'Zasięg ataku',description:'+50 px (maks. 700 px)',enabled:this.attackRange<700},
+   {id:'attack',title:'Szybkość ataku',description:'+10% (maks. +100%)',enabled:this.attackRate<2},
+   {id:'movement',title:'Szybkość ruchu',description:'+5% (maks. +50%)',enabled:this.moveMultiplier<1.5},
+   {id:'pickup',title:'Zbieranie EXP',description:'+50 px (maks. 250 px)',enabled:this.pickupRadius<250},
+   {id:'health',title:'Maksymalne HP',description:'+1 HP, również leczy (maks. 10)',enabled:this.maxHealth<10},
+   {id:'regen',title:'Regeneracja',description:'+1 HP co 5 s bez obrażeń',enabled:!this.regeneration}
+  ];
+  return Phaser.Utils.Array.Shuffle(choices.filter(u=>u.enabled)).slice(0,3);
+ }
+ showUpgrade(){
+  this.upgradeOpen=true;
+  this.time.paused=true;
+  this.offers=this.availableUpgrades();
+  const overlay=document.getElementById('upgrade-overlay');
+  const cards=document.getElementById('upgrade-cards');
+  document.getElementById('upgrade-level').textContent='Poziom '+this.level+' — wybierz ulepszenie';
+  cards.replaceChildren();
+  if(!this.offers.length){
+   const btn=document.createElement('button');btn.className='upgrade-card';btn.textContent='Kontynuuj (wszystkie ulepszenia osiągnęły limit)';btn.onclick=()=>this.chooseUpgrade(-1);cards.append(btn);
+  }else this.offers.forEach((u,i)=>{
+   const btn=document.createElement('button');btn.className='upgrade-card';
+   const key=document.createElement('span');key.className='upgrade-key';key.textContent=String(i+1);
+   const title=document.createElement('strong');title.textContent=u.title;
+   const description=document.createElement('span');description.textContent=u.description;
+   btn.append(key,title,description);btn.onclick=()=>this.chooseUpgrade(i);cards.append(btn);
+  });
+  overlay.hidden=false;
+ }
+ chooseUpgrade(index){
+  if(!this.upgradeOpen)return;
+  const u=this.offers[index];
+  if(this.offers.length&& !u)return;
+  if(u){
+   switch(u.id){
+    case 'range':this.attackRange=Math.min(700,this.attackRange+50);break;
+    case 'attack':this.attackRate=Math.min(2,Math.round((this.attackRate+.1)*100)/100);break;
+    case 'movement':this.moveMultiplier=Math.min(1.5,Math.round((this.moveMultiplier+.05)*100)/100);break;
+    case 'pickup':this.pickupRadius=Math.min(250,this.pickupRadius+50);break;
+    case 'health':this.maxHealth++;this.health=Math.min(this.maxHealth,this.health+1);break;
+    case 'regen':this.regeneration=true;this.lastRegen=this.clock;break;
+   }
+  }
+  this.pendingUpgrades=Math.max(0,this.pendingUpgrades-1);
+  document.getElementById('upgrade-overlay').hidden=true;
+  this.upgradeOpen=false;this.time.paused=false;
+  if(this.pendingUpgrades>0)this.showUpgrade();
+ }
 }
+
 const host=document.getElementById('game');
 const game=new Phaser.Game({type:Phaser.AUTO,parent:'game',width:host.clientWidth,height:host.clientHeight,scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.NO_CENTER},backgroundColor:'#79b65d',render:{pixelArt:true},scene:[Meadow]});
 const observer=new ResizeObserver(()=>{
