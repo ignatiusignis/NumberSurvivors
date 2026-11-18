@@ -1,4 +1,4 @@
-// Number Survivors 0.3.4 — zamek, lochy i teleportacja testowa
+// Number Survivors 0.3.5 — kręty szlak, mosty i przejścia przez biomy
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -14,6 +14,20 @@ const REGIONS=[
  {id:2,name:'Mokradła',x:9950,y:9800,color:[76,134,140],kind:'swamp'}
 ];
 const REGION_SEED=Math.floor(Math.random()*1000000000);
+// Kolejność punktów: łąka → mokradła → zarośla → las → równiny → pustkowia → zamek.
+// Delikatne przesunięcia punktów zmieniają trasę przy każdej nowej rozgrywce.
+const ROAD_ANCHORS=[[5850,9750],[7100,10100],[8550,9850],[9800,10050],[10800,8900],[10400,7200],[9900,5300],[8350,5000],[6800,5500],[5700,5700],[4100,6100],[2300,5850],[2000,4300],[2500,2250],[4300,2900],[6100,3500],[7600,4000],[9300,4100],[9300,3650]];
+const ROAD=ROAD_ANCHORS.map(([x,y],i)=>({x:x+(i===0||i>=17?0:(hash(i,7,REGION_SEED)-.5)*230),y:y+(i===0||i>=17?0:(hash(i,13,REGION_SEED)-.5)*230)}));
+const roadNearest=(x,y)=>{
+ let best=Infinity,segment=0,t=0;
+ for(let i=0;i<ROAD.length-1;i++){
+  const a=ROAD[i],b=ROAD[i+1],dx=b.x-a.x,dy=b.y-a.y;
+  const u=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy),0,1);
+  const d=Math.hypot(x-a.x-u*dx,y-a.y-u*dy);
+  if(d<best){best=d;segment=i;t=u;}
+ }
+ return {distance:best,segment,t};
+};
 const regionScores=(x,y)=>{
  const scores=REGIONS.map((r,i)=>{
   const dx=(x-r.x)/3900,dy=(y-r.y)/3600;
@@ -138,9 +152,9 @@ class Meadow extends Phaser.Scene{
  }
  // Rzeka odcina południe i środek; przejście prowadzi północą.
  riverX(y){return 8700+Math.sin(y/540+REGION_SEED)*150;}
- riverAt(x,y,radius=0){return y>8100&&y<11700&&Math.abs(x-this.riverX(y))<145+radius;}
+ riverAt(x,y,radius=0){return y>8100&&y<11700&&Math.abs(x-this.riverX(y))<145+radius&&roadNearest(x,y).distance>100-radius;}
  // Zwarty pas leśny ma szerokie obejście na południu.
- forestWallAt(x,y,radius=0){return x>4200&&x<7900&&Math.abs(y-(7400+Math.sin(x/650+REGION_SEED)*115))<165+radius;}
+ forestWallAt(x,y,radius=0){return x>4200&&x<7900&&Math.abs(y-(7400+Math.sin(x/650+REGION_SEED)*115))<165+radius&&roadNearest(x,y).distance>105-radius;}
  barrierAt(x,y,radius=0){return this.riverAt(x,y,radius)||this.forestWallAt(x,y,radius);}
  obstaclesFor(cx,cy){
   const key=cx+','+cy;
@@ -157,7 +171,7 @@ class Meadow extends Phaser.Scene{
    if(kind==='forest'&&roll>.82)continue;
    const radius=kind==='swamp'?65+hash(cx,cy,i*11+104)*55:kind==='thicket'?27+hash(cx,cy,i*11+104)*21:24+hash(cx,cy,i*11+104)*18;
    // Zachowaj wolną przestrzeń startową i szerokie korytarze między obiektami.
-   if(Math.hypot(x-5850,y-9750)<450)continue;
+   if(Math.hypot(x-5850,y-9750)<450||roadNearest(x,y).distance<radius+100)continue;
    if(obstacles.some(o=>Math.hypot(x-o.x,y-o.y)<radius+o.radius+95))continue;
    obstacles.push({x,y,radius,kind,shape:kind==='swamp'&&roll<.22?'channel':'round'});
   }
@@ -184,7 +198,8 @@ class Meadow extends Phaser.Scene{
  }
  steerEnemy(enemy,dt,speed){
   let tx=this.player.x,ty=this.player.y;
-  if((enemy.x-this.riverX(enemy.y))*(this.player.x-this.riverX(this.player.y))<0&&enemy.y>8100&&enemy.y<11700){tx=this.riverX(7950);ty=7950;}
+  // Przy odcięciu barierą wróg szuka mostu albo obejścia, nie naciera w ścianę.
+  if((enemy.x-this.riverX(enemy.y))*(this.player.x-this.riverX(this.player.y))<0&&enemy.y>8100&&enemy.y<11700){tx=8550;ty=9850;}
   else if((enemy.y-7400)*(this.player.y-7400)<0&&enemy.x>4200&&enemy.x<7900){tx=8050;ty=7400;}
   const dx=tx-enemy.x,dy=ty-enemy.y,dist=Math.hypot(dx,dy)||1;
   const vx=dx/dist,vy=dy/dist;
@@ -230,7 +245,7 @@ class Meadow extends Phaser.Scene{
   for(let i=0;i<65;i++){
    const x=ox+hash(cx,cy,i*3+1)*CHUNK;
    const y=oy+hash(cx,cy,i*3+2)*CHUNK;
-   if(['castle','dungeon'].includes(this.biomeAt(x,y)))continue;
+   if(['castle','dungeon'].includes(this.biomeAt(x,y))||roadNearest(x,y).distance<90)continue;
    const wet=swampBlend(x,y)+(hash(cx,cy,i*3+3)-.5)*.32;
    const kind=hash(cx,cy,i*3+4);
    if(wet>.42&&kind<wet*.48){
@@ -259,6 +274,21 @@ class Meadow extends Phaser.Scene{
     for(let j=0;j<5;j++)g.fillStyle(j%2?0x275a30:0x356e35).fillCircle(xx+16,fy-145+j*70,29);
    }
   }
+  // Szlak jest rysowany nad wodą i lasem: w przecięciach powstają mosty i przesmyki.
+  g.lineStyle(120,0x594a36,.88);g.beginPath();
+  for(let i=0;i<ROAD.length-1;i++){
+   const a=ROAD[i],b=ROAD[i+1];
+   if(Math.max(a.x,b.x)<ox-130||Math.min(a.x,b.x)>ox+CHUNK+130||Math.max(a.y,b.y)<oy-130||Math.min(a.y,b.y)>oy+CHUNK+130)continue;
+   g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);
+  }
+  g.strokePath();
+  g.lineStyle(104,0xb79a66,.95);g.beginPath();
+  for(let i=0;i<ROAD.length-1;i++){
+   const a=ROAD[i],b=ROAD[i+1];
+   if(Math.max(a.x,b.x)<ox-130||Math.min(a.x,b.x)>ox+CHUNK+130||Math.max(a.y,b.y)<oy-130||Math.min(a.y,b.y)>oy+CHUNK+130)continue;
+   g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);
+  }
+  g.strokePath();
   // Mury i korytarze są rysowane tym samym testem, który steruje kolizją.
   for(let yy=oy;yy<oy+CHUNK;yy+=32)for(let xx=ox;xx<ox+CHUNK;xx+=32){
    const kind=this.biomeAt(xx+16,yy+16);
@@ -326,6 +356,10 @@ class Meadow extends Phaser.Scene{
   ctx.strokeStyle='#c6c9d0';ctx.lineWidth=2;ctx.strokeRect(CASTLE.left/WORLD*w,CASTLE.top/WORLD*h,(CASTLE.right-CASTLE.left)/WORLD*w,(CASTLE.bottom-CASTLE.top)/WORLD*h);
   ctx.strokeStyle='#b7b9c6';for(const y of [1500,2300,3100]){ctx.beginPath();ctx.moveTo(DUNGEON.left/WORLD*w,y/WORLD*h);ctx.lineTo(DUNGEON.right/WORLD*w,y/WORLD*h);ctx.stroke();}
   for(const x of [10850,11600,12200]){ctx.beginPath();ctx.moveTo(x/WORLD*w,DUNGEON.top/WORLD*h);ctx.lineTo(x/WORLD*w,DUNGEON.bottom/WORLD*h);ctx.stroke();}
+  // Widoczny szlak pomaga odnaleźć kolejne regiony.
+  ctx.beginPath();ctx.moveTo(ROAD[0].x/WORLD*w,ROAD[0].y/WORLD*h);
+  for(let i=1;i<ROAD.length;i++)ctx.lineTo(ROAD[i].x/WORLD*w,ROAD[i].y/WORLD*h);
+  ctx.strokeStyle='#302719';ctx.lineWidth=4;ctx.stroke();ctx.strokeStyle='#f2d89b';ctx.lineWidth=2;ctx.stroke();
   ctx.font='bold 14px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
   for(const region of [...REGIONS,{id:7,x:9200,y:2350},{id:8,x:11500,y:2350}]){const px=region.x/WORLD*w,py=region.y/WORLD*h;ctx.lineWidth=3;ctx.strokeStyle='#18251e';ctx.strokeText(String(region.id),px,py);ctx.fillStyle='#ffffff';ctx.fillText(String(region.id),px,py);}
   const px=this.player.x/WORLD*w,py=this.player.y/WORLD*h;
