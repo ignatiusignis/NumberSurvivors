@@ -230,6 +230,7 @@ class Meadow extends Phaser.Scene{
   for(let i=0;i<65;i++){
    const x=ox+hash(cx,cy,i*3+1)*CHUNK;
    const y=oy+hash(cx,cy,i*3+2)*CHUNK;
+   if(['castle','dungeon'].includes(this.biomeAt(x,y)))continue;
    const wet=swampBlend(x,y)+(hash(cx,cy,i*3+3)-.5)*.32;
    const kind=hash(cx,cy,i*3+4);
    if(wet>.42&&kind<wet*.48){
