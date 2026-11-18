@@ -1,14 +1,34 @@
-// Number Survivors 0.3.2 — rozległy świat i naturalne przejścia
+// Number Survivors 0.3.3 — sześć regionów i minimapa
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
 const hash=(x,y,k=0)=>{let n=Math.imul(x+1297,374761393)^Math.imul(y+7919,668265263)^Math.imul(k+31,2246822519);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967296;};
+const REGIONS=[
+ {id:6,name:'Czerwone pustkowia',x:2500,y:2250,color:[147,69,59],kind:'badlands'},
+ {id:5,name:'Suche równiny',x:2300,y:5850,color:[168,125,82],kind:'plains'},
+ {id:4,name:'Gęsty las',x:5800,y:5700,color:[49,99,55],kind:'forest'},
+ {id:3,name:'Zarośla',x:9900,y:5150,color:[75,141,66],kind:'thicket'},
+ {id:1,name:'Łąka',x:5850,y:9750,color:[130,189,71],kind:'meadow'},
+ {id:2,name:'Mokradła',x:9950,y:9800,color:[76,134,140],kind:'swamp'}
+];
+const REGION_SEED=Math.floor(Math.random()*1000000000);
+const regionScores=(x,y)=>{
+ const scores=REGIONS.map((r,i)=>{
+  const dx=(x-r.x)/3900,dy=(y-r.y)/3600;
+  const noise=(hash(Math.floor(x/600),Math.floor(y/600),REGION_SEED+i*17)-.5)*.24;
+  return {region:r,score:dx*dx+dy*dy+noise};
+ }).sort((a,b)=>a.score-b.score);
+ return scores;
+};
+const regionAt=(x,y)=>regionScores(x,y)[0].region;
 const biomeWeights=(x,y)=>{
- const curve=Math.sin(y/950)*380+Math.sin(y/2300)*280;
- const s=clamp((x-(3650+curve))/1450,0,1);
- const t=clamp((x-(6900+Math.sin(y/1100)*500))/1700,0,1);
- const f=clamp((x-(9400+Math.sin(y/1350)*420))/1900,0,1);
- return {meadow:1-s,swamp:s*(1-t),thicket:t*(1-f),forest:f};
+ const scores=regionScores(x,y);
+ const weights={meadow:0,swamp:0,thicket:0,forest:0,plains:0,badlands:0};
+ const a=scores[0],b=scores[1];
+ const blend=clamp((b.score-a.score)/.22,0,1);
+ weights[a.region.kind]=.5+.5*blend;
+ weights[b.region.kind]+=.5-.5*blend;
+ return weights;
 };
 const swampBlend=(x,y)=>biomeWeights(x,y).swamp;
 const nextCost=level=>Math.min(40,level*2);
@@ -19,7 +39,7 @@ class Meadow extends Phaser.Scene{
  create(){
   this.cameras.main.setBackgroundColor('#79b65d');
   this.terrainChunks=new Map();this.obstacleChunks=new Map();
-  this.player=this.add.container(2200,WORLD/2).setDepth(10);
+  this.player=this.add.container(5850,9750).setDepth(10);
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
@@ -55,12 +75,12 @@ class Meadow extends Phaser.Scene{
   this.lastSpawn=-1;
   this.updateTerrain();
  }
- biomeAt(x,y){const b=biomeWeights(x,y);return Object.keys(b).reduce((best,k)=>b[k]>b[best]?k:best,'meadow');}
+ biomeAt(x,y){return regionAt(x,y).kind;}
  // Rzeka odcina południe i środek; przejście prowadzi północą.
- riverX(y){return 6200+Math.sin(y/540)*160+Math.sin(y/1350)*100;}
- riverAt(x,y,radius=0){return y>2500&&Math.abs(x-this.riverX(y))<145+radius;}
+ riverX(y){return 8700+Math.sin(y/540+REGION_SEED)*150;}
+ riverAt(x,y,radius=0){return y>8100&&y<11700&&Math.abs(x-this.riverX(y))<145+radius;}
  // Zwarty pas leśny ma szerokie obejście na południu.
- forestWallAt(x,y,radius=0){return y<9800&&Math.abs(x-(9650+Math.sin(y/650)*115))<185+radius;}
+ forestWallAt(x,y,radius=0){return x>4200&&x<7900&&Math.abs(y-(7400+Math.sin(x/650+REGION_SEED)*115))<165+radius;}
  barrierAt(x,y,radius=0){return this.riverAt(x,y,radius)||this.forestWallAt(x,y,radius);}
  obstaclesFor(cx,cy){
   const key=cx+','+cy;
@@ -71,13 +91,13 @@ class Meadow extends Phaser.Scene{
    const x=ox+90+hash(cx,cy,i*11+101)*(CHUNK-180);
    const y=oy+90+hash(cx,cy,i*11+102)*(CHUNK-180);
    const kind=this.biomeAt(x,y),roll=hash(cx,cy,i*11+103);
-   if(kind==='meadow'||this.barrierAt(x,y,150))continue;
+   if(kind==='meadow'||kind==='plains'||kind==='badlands'||this.barrierAt(x,y,150))continue;
    if(kind==='swamp'&&roll>.55)continue;
    if(kind==='thicket'&&roll>.72)continue;
    if(kind==='forest'&&roll>.82)continue;
    const radius=kind==='swamp'?65+hash(cx,cy,i*11+104)*55:kind==='thicket'?27+hash(cx,cy,i*11+104)*21:24+hash(cx,cy,i*11+104)*18;
    // Zachowaj wolną przestrzeń startową i szerokie korytarze między obiektami.
-   if(Math.hypot(x-2200,y-WORLD/2)<450)continue;
+   if(Math.hypot(x-5850,y-9750)<450)continue;
    if(obstacles.some(o=>Math.hypot(x-o.x,y-o.y)<radius+o.radius+95))continue;
    obstacles.push({x,y,radius,kind,shape:kind==='swamp'&&roll<.22?'channel':'round'});
   }
@@ -104,8 +124,8 @@ class Meadow extends Phaser.Scene{
  }
  steerEnemy(enemy,dt,speed){
   let tx=this.player.x,ty=this.player.y;
-  if((enemy.x-this.riverX(enemy.y))*(this.player.x-this.riverX(this.player.y))<0&&enemy.y>2350){tx=this.riverX(2200);ty=2050;}
-  else if((enemy.x-9650)*(this.player.x-9650)<0&&enemy.y<9950){tx=9650;ty=10250;}
+  if((enemy.x-this.riverX(enemy.y))*(this.player.x-this.riverX(this.player.y))<0&&enemy.y>8100&&enemy.y<11700){tx=this.riverX(7950);ty=7950;}
+  else if((enemy.y-7400)*(this.player.y-7400)<0&&enemy.x>4200&&enemy.x<7900){tx=8050;ty=7400;}
   const dx=tx-enemy.x,dy=ty-enemy.y,dist=Math.hypot(dx,dy)||1;
   const vx=dx/dist,vy=dy/dist;
   const radius=Math.min(enemy.size*.55,24);
@@ -142,7 +162,7 @@ class Meadow extends Phaser.Scene{
    const x=ox+ix*64,y=oy+iy*64;
    const noise=(hash(cx*10+ix,cy*10+iy,2)-.5)*.24;
    const b=biomeWeights(x+32,y+32);
-   const rgb={r:Math.round(121*b.meadow+76*b.swamp+82*b.thicket+48*b.forest),g:Math.round(182*b.meadow+117*b.swamp+130*b.thicket+93*b.forest),b:Math.round(93*b.meadow+79*b.swamp+62*b.thicket+52*b.forest)};
+   const rgb={r:Math.round(130*b.meadow+76*b.swamp+82*b.thicket+48*b.forest+168*b.plains+147*b.badlands),g:Math.round(189*b.meadow+134*b.swamp+141*b.thicket+99*b.forest+125*b.plains+69*b.badlands),b:Math.round(71*b.meadow+140*b.swamp+66*b.thicket+55*b.forest+82*b.plains+59*b.badlands)};
    const n=noise*26;rgb.r=clamp(rgb.r+n,0,255);rgb.g=clamp(rgb.g+n,0,255);rgb.b=clamp(rgb.b+n,0,255);
    const color=Phaser.Display.Color.GetColor(rgb.r,rgb.g,rgb.b);
    g.fillStyle(color,1).fillRect(x,y,65,65);
@@ -165,15 +185,17 @@ class Meadow extends Phaser.Scene{
   // Ciągłe bariery: rzeka z przejściem na północy oraz gęsty las z obejściem na południu.
   for(let yy=oy;yy<oy+CHUNK;yy+=32){
    const rx=this.riverX(yy);
-   if(yy>2500&&rx+145>=ox&&rx-145<=ox+CHUNK){
+   if(yy>8100&&yy<11700&&rx+145>=ox&&rx-145<=ox+CHUNK){
     g.fillStyle(0x355d4b).fillRect(rx-156,yy,312,33);
     g.fillStyle(0x3d8292).fillRect(rx-145,yy,290,33);
     g.lineStyle(2,0x8db5ae,.5).lineBetween(rx-145,yy,rx-145,yy+33);
    }
-   const fx=9650+Math.sin(yy/650)*115;
-   if(yy<9800&&fx+185>=ox&&fx-185<=ox+CHUNK){
-    g.fillStyle(0x1e4628).fillRect(fx-185,yy,370,33);
-    for(let j=0;j<5;j++){const xx=fx-165+j*76;g.fillStyle(j%2?0x275a30:0x356e35).fillCircle(xx,yy+16,33);}
+  }
+  for(let xx=ox;xx<ox+CHUNK;xx+=32){
+   const fy=7400+Math.sin(xx/650+REGION_SEED)*115;
+   if(xx>4200&&xx<7900&&fy+165>=oy&&fy-165<=oy+CHUNK){
+    g.fillStyle(0x1e4628).fillRect(xx,fy-165,33,330);
+    for(let j=0;j<5;j++)g.fillStyle(j%2?0x275a30:0x356e35).fillCircle(xx+16,fy-145+j*70,29);
    }
   }
   for(const o of this.obstaclesFor(cx,cy)){
@@ -213,6 +235,24 @@ class Meadow extends Phaser.Scene{
   }
   this.renderLockMenu();
   this.renderStats();
+ }
+ drawMinimap(){
+  const canvas=document.getElementById('world-minimap');if(!canvas)return;
+  const ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height;
+  const cell=5;
+  for(let py=0;py<h;py+=cell)for(let px=0;px<w;px+=cell){
+   const x=(px+cell/2)/w*WORLD,y=(py+cell/2)/h*WORLD;
+   const b=biomeWeights(x,y);
+   const rgb=[0,1,2].map(i=>Math.round(REGIONS.reduce((sum,r)=>sum+r.color[i]*b[r.kind],0)));
+   ctx.fillStyle='rgb('+rgb.join(',')+')';ctx.fillRect(px,py,cell,cell);
+  }
+  ctx.fillStyle='#327f9b';ctx.strokeStyle='#a5d6df';ctx.lineWidth=1;
+  for(let y=8100;y<11700;y+=35){const x=this.riverX(y);ctx.fillRect((x-145)/WORLD*w,y/WORLD*h,290/WORLD*w,36/WORLD*h);}
+  ctx.fillStyle='#173f24';for(let x=4200;x<7900;x+=35){const y=7400+Math.sin(x/650+REGION_SEED)*115;ctx.fillRect(x/WORLD*w,(y-165)/WORLD*h,36/WORLD*w,330/WORLD*h);}
+  ctx.font='bold 14px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const region of REGIONS){const px=region.x/WORLD*w,py=region.y/WORLD*h;ctx.lineWidth=3;ctx.strokeStyle='#18251e';ctx.strokeText(String(region.id),px,py);ctx.fillStyle='#ffffff';ctx.fillText(String(region.id),px,py);}
+  const px=this.player.x/WORLD*w,py=this.player.y/WORLD*h;
+  ctx.beginPath();ctx.arc(px,py,7,0,Math.PI*2);ctx.fillStyle='#ffe35b';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#151515';ctx.stroke();
  }
  renderLockMenu(){
   const area=document.getElementById('lock-buttons');
@@ -543,7 +583,7 @@ class Meadow extends Phaser.Scene{
   this.time.paused=this.manualPause;
   const overlay=document.getElementById('pause-overlay');
   overlay.hidden=!this.manualPause;
-  if(this.manualPause){this.renderStats();this.renderLockMenu();}
+  if(this.manualPause){this.renderStats();this.renderLockMenu();this.drawMinimap();}
  }
  availableUpgrades(){
   return Phaser.Utils.Array.Shuffle(this.upgradeLevels().filter(u=>u.level<u.max)).slice(0,3);
