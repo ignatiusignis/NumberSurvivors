@@ -41,7 +41,8 @@ class Meadow extends Phaser.Scene{
   this.layoutHUD(this.scale.width,this.scale.height);
   this.scale.on('resize',this.onGameResize,this);
   this.events.once('shutdown',()=>{this.input.keyboard.removeAllListeners('keydown');this.scale.off('resize',this.onGameResize,this);});
-  this.spawnWave(2);this.lastSpawn=this.clock;
+  // Pierwsza fala dopiero po ustawieniu kamery w pierwszej klatce.
+  this.lastSpawn=-1;
  }
  slotCount(){return 1+Number(this.level>=10)+Number(this.level>=20)+Number(this.level>=30);}
  lockLimit(){return this.slotCount()-1;}
@@ -176,6 +177,7 @@ class Meadow extends Phaser.Scene{
   if(this.upgradeOpen||this.manualPause)return;
   this.clock+=Math.min(delta,50);
   const now=this.clock;
+  if(this.lastSpawn<0){this.spawnWave(2);this.lastSpawn=now;}
   if(this.health<=0){this.scene.pause();this.add.text(this.cameras.main.scrollX+400,this.cameras.main.scrollY+250,'KONIEC GRY',{font:'bold 52px Arial',color:'#fff'}).setOrigin(.5);return;}
   const dt=Math.min(delta,50)/1000;
   let dx=Number(this.keys.D.isDown||this.keys.RIGHT.isDown)-Number(this.keys.A.isDown||this.keys.LEFT.isDown);
