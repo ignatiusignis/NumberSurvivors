@@ -19,7 +19,7 @@ class Meadow extends Phaser.Scene{
   this.help=this.add.text(12,94,'',{fontFamily:'Arial',fontSize:'14px',color:'#fff',stroke:'#24451d',strokeThickness:3}).setScrollFactor(0).setDepth(100);
   this.input.keyboard.on('keydown',e=>{const i=Number(e.key)-1;if(i>=0&&i<8){const p=PRIMES[i];if(!this.active.includes(p)){this.active.push(p);const slots=this.level>=40?3:this.level>=20?2:1;while(this.active.length>slots)this.active.shift();}}});
   this.events.on('shutdown',()=>this.input.keyboard.removeAllListeners('keydown'));
-  this.spawnWave(2);
+  this.spawnWave(2);this.lastSpawn=this.time.now;
  }
  makeEnemy(n,x,y){
   const size=19+factorTypes(n)*7;
