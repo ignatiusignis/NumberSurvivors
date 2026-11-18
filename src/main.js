@@ -12,7 +12,7 @@ class Meadow extends Phaser.Scene{
  create(){
   this.cameras.main.setBackgroundColor('#79b65d');
   this.terrainChunks=new Map();
-  this.player=this.add.container(WORLD/2,WORLD/2).setDepth(10);
+  this.player=this.add.container(1900,WORLD/2).setDepth(10);
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
