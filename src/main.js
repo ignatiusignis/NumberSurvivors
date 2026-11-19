@@ -1,4 +1,4 @@
-// Number Survivors 0.7.6 — światło w lochach i naturalne zakończenia
+// Number Survivors 0.7.7 — większe drzewo, granice, ceglane mury i pochodnie
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -705,130 +705,28 @@ class Meadow extends Phaser.Scene{
    }
   }
   // Twarde granice biomów poza szerokimi bramami w pobliżu drogi.
-  // Granice: zamiast szarej szachownicy — organiczne kępy i głazy.
-  // Test kolizji jest niezmieniony. Próbkujemy również sąsiedni chunk,
-  // by korony na jego krawędzi nie urywały się prostą linią.
-  for(let yy=Math.floor((oy-48)/40)*40;yy<oy+CHUNK+48;yy+=40)
-   for(let xx=Math.floor((ox-48)/40)*40;xx<ox+CHUNK+48;xx+=40){
-    if(!this.regionBoundaryAt(xx+20,yy+20,25))continue;
-    const kind=this.biomeAt(xx+20,yy+20);
-    const seedX=Math.floor(xx/40),seedY=Math.floor(yy/40);
-    const jitterX=(hash(seedX,seedY,6101)-.5)*10;
-    const jitterY=(hash(seedX,seedY,6102)-.5)*10;
-    const x=xx+20+jitterX,y=yy+20+jitterY;
-    const size=25+hash(seedX,seedY,6103)*8;
+  // Granice: nieregularne, zachodzące na siebie krzewy, bez szeregów kół.
+  // Kolizje i położenie przejść pozostają nietknięte.
+  for(let yy=Math.floor((oy-60)/44)*44;yy<oy+CHUNK+60;yy+=44)
+   for(let xx=Math.floor((ox-60)/44)*44;xx<ox+CHUNK+60;xx+=44){
+    if(!this.regionBoundaryAt(xx+22,yy+22,24))continue;
+    const kind=this.biomeAt(xx+22,yy+22);
+    const sx=Math.floor(xx/44),sy=Math.floor(yy/44);
+    const x=xx+22+(hash(sx,sy,6101)-.5)*18,y=yy+22+(hash(sx,sy,6102)-.5)*16;
+    const size=28+hash(sx,sy,6103)*12;
     if(kind==='forest'||kind==='thicket'||kind==='meadow'){
-     g.fillStyle(0x183f29,.95).fillEllipse(x+3,y+5,size*2.25,size*1.95);
-     g.fillStyle(kind==='thicket'?0x427a39:0x2d6338).fillEllipse(x-2,y-3,size*2.1,size*1.9);
-     g.fillStyle(0x639347,.7).fillEllipse(x-9,y-11,size*.8,size*.38);
-    }else if(kind==='swamp'){
-     g.fillStyle(0x46573c,.94).fillEllipse(x,y,size*2.3,size*1.6);
-     g.fillStyle(0x738052,.85).fillEllipse(x-4,y-4,size*1.6,size*.9);
+     g.fillStyle(0x163a25).fillEllipse(x+4,y+10,size*2.5,size*1.9);
+     for(let j=0;j<4;j++){
+      const a=j*2.4+hash(sx,sy,6200+j);
+      const px=x+Math.cos(a)*size*.38,py=y+Math.sin(a)*size*.3;
+      g.fillStyle(j%2?0x376f39:0x2a5d33).fillEllipse(px,py,size*1.25,size*1.08);
+     }
+     g.fillStyle(0x6a9c4d,.5).fillEllipse(x-size*.3,y-size*.45,size*.7,size*.25);
     }else{
-     g.fillStyle(kind==='badlands'?0x57423a:0x655b47,.96).fillEllipse(x+3,y+5,size*2.1,size*1.65);
-     g.fillStyle(kind==='badlands'?0x89614f:0x93866b).fillEllipse(x-3,y-4,size*1.7,size*1.4);
-     g.fillStyle(0xb5a186,.55).fillEllipse(x-9,y-10,size*.7,size*.26);
+     g.fillStyle(kind==='swamp'?0x3e5b3c:kind==='badlands'?0x5a443c:0x716451).fillEllipse(x+3,y+6,size*2.3,size*1.55);
+     g.fillStyle(kind==='swamp'?0x63794a:kind==='badlands'?0x92725b:0xa39677).fillPoints([{x:x-size,y:y+size*.15},{x:x-size*.6,y:y-size*.58},{x:x+size*.2,y:y-size*.85},{x:x+size*.95,y:y-size*.2},{x:x+size*.8,y:y+size*.3}],true);
     }
    }
-  // Zaokrąglona trasa: krzywe kwadratowe łagodzą zakręty, ale zachowują
-  // wszystkie punkty szlaku i jego dotychczasowe połączenia.
-  const path=[];
-  const push=(x,y)=>{const last=path[path.length-1];if(!last||Math.hypot(last.x-x,last.y-y)>1)path.push({x,y});};
-  push(ROAD[0].x,ROAD[0].y);
-  for(let i=1;i<ROAD.length-1;i++){
-   const prev=ROAD[i-1],p=ROAD[i],next=ROAD[i+1];
-   const d1=Math.hypot(p.x-prev.x,p.y-prev.y),d2=Math.hypot(next.x-p.x,next.y-p.y);
-   const r=Math.min(125,d1*.22,d2*.22);
-   const enter={x:p.x-(p.x-prev.x)*r/d1,y:p.y-(p.y-prev.y)*r/d1};
-   const leave={x:p.x+(next.x-p.x)*r/d2,y:p.y+(next.y-p.y)*r/d2};
-   push(enter.x,enter.y);
-   for(let k=1;k<=12;k++){
-    const t=k/12,u=1-t;
-    push(u*u*enter.x+2*u*t*p.x+t*t*leave.x,u*u*enter.y+2*u*t*p.y+t*t*leave.y);
-   }
-  }
-  push(ROAD[ROAD.length-1].x,ROAD[ROAD.length-1].y);
-  const roadPalette=kind=>{
-   switch(kind){
-    case 'swamp':return [0x4d4c31,0x857b50,0xa79b69];
-    case 'forest':return [0x4a3827,0x866744,0xaa875c];
-    case 'thicket':return [0x55482c,0x9a8253,0xb9a06d];
-    case 'plains':return [0x74523b,0xc19a6b,0xd4b282];
-    case 'badlands':return [0x743f35,0xb47759,0xd09a72];
-    case 'castle':return [0x42424a,0x8c8b86,0xb0ada2];
-    case 'dungeon':return [0x34343c,0x6e6c72,0x929097];
-    default:return [0x655039,0xb99c70,0xd7ba89];
-   }
-  };
-  // Droga jako ciąg czworokątów bez kół. Kolory zmieniają się
-  // stopniowo wzdłuż szlaku, a nie w postaci wielkich półokręgów.
-  const blendRoad=(x,y,index)=>{
-   const w=biomeWeights(x,y);
-   let red=0,green=0,blue=0,total=0;
-   for(const [kind,weight] of Object.entries(w)){
-    if(weight<=0)continue;
-    const color=roadPalette(kind)[index];
-    red+=((color>>16)&255)*weight;green+=((color>>8)&255)*weight;blue+=(color&255)*weight;total+=weight;
-   }
-   return Phaser.Display.Color.GetColor(Math.round(red/total),Math.round(green/total),Math.round(blue/total));
-  };
-  // Zamiast wielu wąskich trapezów tworzymy jeden obrys z wierzchołkami
-  // współdzielonymi przez kolejne segmenty. Eliminuje to trójkątne szwy.
-  const roadOutline=half=>{
-   const left=[],right=[];
-   for(let i=0;i<path.length;i++){
-    const p=path[i],prev=path[Math.max(0,i-1)],next=path[Math.min(path.length-1,i+1)];
-    const d1=Math.hypot(p.x-prev.x,p.y-prev.y)||1,d2=Math.hypot(next.x-p.x,next.y-p.y)||1;
-    const ax=-(p.y-prev.y)/d1,ay=(p.x-prev.x)/d1;
-    const bx=-(next.y-p.y)/d2,by=(next.x-p.x)/d2;
-    const mx=ax+bx,my=ay+by,ml=Math.hypot(mx,my)||1;
-    const dot=Math.max(.65,(mx*bx+my*by)/ml);
-    const length=Math.min(half*1.4,half/dot);
-    left.push({x:p.x+mx/ml*length,y:p.y+my/ml*length});
-    right.push({x:p.x-mx/ml*length,y:p.y-my/ml*length});
-   }
-   return {left,right};
-  };
-  for(const [width,index] of [[124,0],[108,1]]){
-   const outline=roadOutline(width/2);
-   for(let i=1;i<path.length;i++){
-    const p=path[i-1],q=path[i];
-    if(Math.max(p.x,q.x)<ox-70||Math.min(p.x,q.x)>ox+CHUNK+70||Math.max(p.y,q.y)<oy-70||Math.min(p.y,q.y)>oy+CHUNK+70)continue;
-    const color=blendRoad((p.x+q.x)/2,(p.y+q.y)/2,index);
-    g.fillStyle(color,1).fillPoints([outline.left[i-1],outline.left[i],outline.right[i],outline.right[i-1]],true);
-   }
-  }
-  // Łagodne zamknięcie drogi na jej ostatnim punkcie.
-  const endPoint=path[path.length-1];
-  if(endPoint.x>=ox-70&&endPoint.x<=ox+CHUNK+70&&endPoint.y>=oy-70&&endPoint.y<=oy+CHUNK+70){
-   g.fillStyle(blendRoad(endPoint.x,endPoint.y,0)).fillCircle(endPoint.x,endPoint.y,62);
-   g.fillStyle(blendRoad(endPoint.x,endPoint.y,1)).fillCircle(endPoint.x,endPoint.y,54);
-  }
-  // Drobne plamki, kamyczki i ślady ziemi są wypalane w teksturze chunku.
-  // Nie powstają żadne nowe obiekty ani obliczenia w każdej klatce.
-  for(let i=0;i<125;i++){
-   const x=ox+hash(cx,cy,2300+i*4)*CHUNK,y=oy+hash(cx,cy,2301+i*4)*CHUNK;
-   let d2=Infinity;
-   for(let j=1;j<path.length;j++){
-    const p=path[j-1],q=path[j],vx=q.x-p.x,vy=q.y-p.y;
-    if(x<Math.min(p.x,q.x)-60||x>Math.max(p.x,q.x)+60||y<Math.min(p.y,q.y)-60||y>Math.max(p.y,q.y)+60)continue;
-    const t=clamp(((x-p.x)*vx+(y-p.y)*vy)/(vx*vx+vy*vy||1),0,1);
-    const dx=x-p.x-t*vx,dy=y-p.y-t*vy;d2=Math.min(d2,dx*dx+dy*dy);
-   }
-   if(d2>48*48)continue;
-   const palette=roadPalette(this.biomeAt(x,y));
-   const n=hash(cx,cy,2302+i*4),size=1.5+hash(cx,cy,2303+i*4)*4;
-   g.fillStyle(n<.55?palette[2]:palette[0],n<.55?.26:.13);
-   g.fillEllipse(x,y,size*(n<.2?3:2),size*(n<.2?.65:1));
-  }
-  // Nieprzebyty pas lasu wokół zamku; jedynie zachodnia brama pozostaje otwarta.
-  for(let yy=oy;yy<oy+CHUNK;yy+=40)for(let xx=ox;xx<ox+CHUNK;xx+=40){
-   const x=xx+20,y=yy+20;
-   const south=y>CASTLE.bottom-115&&y<CASTLE.bottom+160&&x>CASTLE.left-170&&x<CASTLE.right+150;
-   const west=x>CASTLE.left-170&&x<CASTLE.left+90&&y>CASTLE.top-100&&y<CASTLE.bottom+100&&Math.abs(y-2350)>270;
-   const north=y>CASTLE.top-120&&y<CASTLE.top+90&&x>CASTLE.left-170&&x<CASTLE.right+100;
-   if(south||west||north){g.fillStyle(0x173c24).fillCircle(x,y,29);g.fillStyle(0x326c37).fillCircle(x-7,y-8,20);}
-  }
   // Zamkowe mury i baszty — wyłącznie wizualne, bramy pozostają otwarte.
   // Nie rysujemy murów przez wejście zachodnie (y około 2350).
   for(let y=CASTLE.top+80;y<CASTLE.bottom-40;y+=82){
@@ -848,23 +746,27 @@ class Meadow extends Phaser.Scene{
    g.fillStyle(0x75747b).fillCircle(x-5,y-9,29);
    g.fillStyle(0x42444c).fillCircle(x-5,y-9,16);
   }
-  // Pochodnie i proporce przy istniejących korytarzach lochów.
+  // Zamkowe proporce są dekoracją dziedzińca, nie lochów.
   for(const [x,y] of [[8700,1500],[10150,1500],[8700,3000],[10150,3000]]){
-   if(x<ox-55||x>ox+CHUNK+55||y<oy-55||y>oy+CHUNK+55)continue;
-   g.fillStyle(0x24242b,.4).fillEllipse(x+9,y+18,42,18);
-   g.fillStyle(0x686873).fillRoundedRect(x-14,y-16,28,37,4);
-   g.fillStyle(0x9e4c43).fillPoints([{x:x-10,y:y-11},{x:x+10,y:y-11},{x:x+10,y:y+23},{x:x,y:y+14},{x:x-10,y:y+23}],true);
-   g.fillStyle(0xe8a65a).fillCircle(x,y-16,7);
+   if(x<ox||x>=ox+CHUNK||y<oy||y>=oy+CHUNK)continue;
+   g.fillStyle(0x5b5b62).fillRoundedRect(x-14,y-16,28,38,4);
+   g.fillStyle(0xa14b45).fillPoints([{x:x-10,y:y-11},{x:x+10,y:y-11},{x:x+10,y:y+23},{x:x,y:y+14},{x:x-10,y:y+23}],true);
   }
-  // Mury i korytarze są rysowane tym samym testem, który steruje kolizją.
-  for(let yy=oy;yy<oy+CHUNK;yy+=32)for(let xx=ox;xx<ox+CHUNK;xx+=32){
-   const kind=this.biomeAt(xx+16,yy+16);
-   if(kind!=='castle'&&kind!=='dungeon')continue;
-   if(this.structureBlocked(xx+16,yy+16,4)){
-    g.fillStyle(kind==='castle'?0x555761:0x272832).fillRect(xx,yy,33,33);
-    g.lineStyle(1,kind==='castle'?0x81838c:0x424452,.6).strokeRect(xx,yy,32,32);
-   }else if(kind==='dungeon'){
-    g.lineStyle(1,0x777884,.23).strokeRect(xx,yy,32,32);
+  // Cegły na mijankę: co drugi rząd przesunięty o pół cegły.
+  // Każda cegła rysowana tylko w miejscach istniejących ścian.
+  for(let yy=Math.floor(oy/28)*28;yy<oy+CHUNK;yy+=28){
+   const row=Math.floor(yy/28),offset=(row&1)*24;
+   for(let xx=Math.floor((ox-offset)/48)*48+offset;xx<ox+CHUNK;xx+=48){
+    const mx=xx+24,my=yy+14,kind=this.biomeAt(mx,my);
+    if(kind!=='castle'&&kind!=='dungeon')continue;
+    if(this.structureBlocked(mx,my,4)){
+     const base=kind==='castle'?0x55575e:0x171821;
+     const light=kind==='castle'?0x8f9296:0x4e5060;
+     g.fillStyle(0x15151c,.85).fillRoundedRect(xx,yy,49,29,3);
+     g.fillStyle(base).fillRoundedRect(xx+2,yy+2,45,25,3);
+     g.fillStyle(light,.72).fillRect(xx+5,yy+4,38,3);
+     g.fillStyle(0x11131a,.3).fillRect(xx+4,yy+23,40,3);
+    }
    }
   }
   // Rysunkowe szczegóły architektury — statyczne, wypalane w teksturze.
@@ -879,10 +781,12 @@ class Meadow extends Phaser.Scene{
    }else{
     // Pochodnia i kamienie, bez animacji i nowych kolizji.
     if(i%3===0){
-     g.fillStyle(0x9a703f).fillRoundedRect(x-3,y-1,6,16,2);
-     g.fillStyle(0xe77e2f,.35).fillCircle(x,y-9,23);
-     g.fillStyle(0xffb54d).fillEllipse(x,y-10,10,18);
-     g.fillStyle(0xffe4a0).fillEllipse(x,y-9,4,9);
+     // Pełna, symetryczna pochodnia — bez uciętej połowy.
+     g.fillStyle(0xe77e2f,.18).fillCircle(x,y-9,27);
+     g.fillStyle(0x6e513b).fillRoundedRect(x-5,y-2,10,22,3);
+     g.fillStyle(0xb08a52).fillRoundedRect(x-7,y-3,14,6,2);
+     g.fillStyle(0xf28b34).fillEllipse(x,y-13,16,23);
+     g.fillStyle(0xffd67a).fillEllipse(x,y-13,8,14);
     }else{
      g.fillStyle(0x464650).fillEllipse(x,y,19,9);
      g.fillStyle(0x71717b,.55).fillEllipse(x-4,y-3,10,4);
@@ -891,6 +795,8 @@ class Meadow extends Phaser.Scene{
   }
   for(const o of this.obstaclesFor(cx,cy)){
    if(o.kind==='swamp'){
+    // Staw w górnym zakończeniu rzeki zasłaniał jej naturalny brzeg.
+    if(Math.hypot(o.x-this.riverX(8100),o.y-8100)<410)continue;
     this.drawSwampPond(g,o);
    }else if(o.kind==='thicket'){
     this.drawThicket(g,o.x,o.y,o.radius,Math.floor(o.x+o.y));
@@ -901,16 +807,16 @@ class Meadow extends Phaser.Scene{
   // Zwalenie drzewa przy samym wejściu: pień poziomo przecina drogę,
   // gałęzie i korzenie kończą się przy zachodniej krawędzi świata.
   if(cx===0&&cy===Math.floor(11500/CHUNK)){
-   const x=76,y=11500;
-   g.fillStyle(0x253b23,.22).fillEllipse(x+6,y+12,170,140);
-   g.lineStyle(51,0x543923).lineBetween(x-12,y-91,x+18,y+91);
-   g.lineStyle(39,0x99683e).lineBetween(x-12,y-91,x+18,y+91);
+   const x=84,y=11500;
+   g.fillStyle(0x253b23,.22).fillEllipse(x+6,y+12,230,230);
+   g.lineStyle(70,0x543923).lineBetween(x-12,y-130,x+18,y+130);
+   g.lineStyle(55,0x99683e).lineBetween(x-12,y-130,x+18,y+130);
    g.lineStyle(4,0xc18a51,.6).lineBetween(x-5,y-81,x+25,y+79);
    for(const [x1,y1,x2,y2] of [[-10,-66,-56,-107],[9,29,62,12],[17,71,55,113]]){
     g.lineStyle(12,0x64432c).lineBetween(x+x1,y+y1,x+x2,y+y2);
     g.lineStyle(6,0x9a7044).lineBetween(x+x1,y+y1,x+x2,y+y2);
    }
-   for(const [dx,dy,rr] of [[-24,-105,30],[-51,-113,24],[51,14,25],[49,108,28]]){
+   for(const [dx,dy,rr] of [[-24,-145,40],[-51,-133,33],[51,14,35],[49,148,39]]){
     g.fillStyle(0x21482a).fillCircle(x+dx+3,y+dy+5,rr+3);
     g.fillStyle(0x4d963f).fillCircle(x+dx,y+dy,rr);
     g.fillStyle(0x80b451,.7).fillEllipse(x+dx-8,y+dy-8,rr*.8,rr*.4);
