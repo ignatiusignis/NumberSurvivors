@@ -1,4 +1,4 @@
-// Number Survivors 0.8.2 — widoczny cel w lochach i test zwycięstwa
+// Number Survivors 0.9.0 — łotrzyk łucznik i zróżnicowane slime'y
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -225,7 +225,21 @@ class Meadow extends Phaser.Scene{
   this.textures.addCanvas('dungeon-vision',fogCanvas);
   this.dungeonVision=this.add.image(0,0,'dungeon-vision').setOrigin(.5).setScrollFactor(0).setDepth(50).setVisible(false);
 
-  this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
+  // Łotrzyk-łucznik: prosta grafika wektorowa, bez dodatkowych tekstur i animacji GPU.
+  const hero=this.add.container(0,0);
+  const shadow=this.add.ellipse(0,13,35,12,0x142b1b,.4);
+  const boots=[this.add.ellipse(-7,10,10,13,0x503426),this.add.ellipse(7,10,10,13,0x503426)];
+  const cloak=this.add.ellipse(0,0,29,30,0x245537).setStrokeStyle(2,0x153b27);
+  const torso=this.add.ellipse(0,1,21,23,0x438143);
+  const belt=this.add.rectangle(0,7,23,5,0x8b5631);
+  const face=this.add.ellipse(0,-12,17,15,0xf1c69b);
+  const hood=this.add.triangle(0,-18,-18,6,0,-27,18,6,0x317344).setStrokeStyle(2,0x17452c);
+  const quiver=this.add.rectangle(-15,-5,8,22,0x7b4b2b).setAngle(-19);
+  const feathers=[this.add.line(0,0,-18,-20,-20,-30,0xf3dfaa).setLineWidth(2),this.add.line(0,0,-14,-19,-15,-30,0xe9e2ce).setLineWidth(2)];
+  const bow=this.add.arc(14,-1,15,275,85,false,0xb98447).setStrokeStyle(3,0x9b6032);
+  const string=this.add.line(0,0,15,-16,15,15,0xe7d6b1).setLineWidth(1);
+  hero.add([shadow,...boots,quiver,...feathers,cloak,torso,belt,face,hood,bow,string]);
+  this.player.add(hero);this.heroVisual=hero;this.heroBoots=boots;
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
   this.highestRegion=1;this.teleportTesting=false;
@@ -1087,13 +1101,47 @@ class Meadow extends Phaser.Scene{
   const size=options.boss?58:19+factorTypes(n)*7;
   const swamp=this.biomeAt(x,y)==='swamp';
   const baseColor=options.boss?0xb33d53:swamp?0x547f69:0x8e6ac1;
-  const body=this.add.circle(0,0,size,baseColor).setStrokeStyle(3,options.boss?0x601b2c:swamp?0x294e42:0x4a3471);
-  const ears=[this.add.ellipse(-size*.6,-size*.7,12,18,0x8e6ac1),this.add.ellipse(size*.6,-size*.7,12,18,0x8e6ac1)];
-  const tail=this.add.arc(size*.8,size*.6,16,285,90,false,0x76539d).setStrokeStyle(3,0x76539d);
-  const label=this.add.text(0,0,String(n),{fontFamily:'Arial',fontSize:size>30?'23px':'19px',fontStyle:'bold',color:'#ffffff',stroke:'#342044',strokeThickness:4}).setOrigin(.5);
-  const eyes=swamp&&!options.boss?[this.add.circle(-size*.3,-size*.12,4,0xe3dc80),this.add.circle(size*.3,-size*.12,4,0xe3dc80)]:[];
-  const view=this.add.container(x,y,[tail,...ears,body,...eyes,label]).setDepth(7);
-  const enemy={n,x,y,size,view,label,body,boss:!!options.boss,swarm:!!options.swarm,hitPoints:options.hitPoints||0,armor:options.boss?10:0,baseColor,bornMinute:Math.floor((this.clock-this.startTime)/60000)};
+  // Slime'y z deterministycznymi odmianami: uszy, rogi, skrzydła i broń.
+  const variant=options.boss?'king':(['basic','rabbit','horned','winged','sword','spear','axe'][Math.abs(n+Math.floor(x/100)+Math.floor(y/100))%7]);
+  const color=options.boss?0xc94e55:({basic:0x73c64d,rabbit:0x46b7d9,horned:0xd65a57,winged:0x9860c6,sword:0x7fbb53,spear:0x4cb2bf,axe:0x70a856})[variant];
+  const outline=options.boss?0x78313e:0x294e46;
+  const parts=[];
+  const shape=(obj)=>{parts.push(obj);return obj;};
+  shape(this.add.ellipse(3,size*.7,size*2.05,size*.55,0x18251f,.35));
+  if(variant==='rabbit'){
+   shape(this.add.ellipse(-size*.5,-size*.97,size*.48,size*1.2,0x3a93b3).setAngle(-13));
+   shape(this.add.ellipse(size*.5,-size*.97,size*.48,size*1.2,0x3a93b3).setAngle(13));
+   shape(this.add.ellipse(-size*.5,-size*.97,size*.21,size*.87,0xf0a9c2).setAngle(-13));
+   shape(this.add.ellipse(size*.5,-size*.97,size*.21,size*.87,0xf0a9c2).setAngle(13));
+  }else if(variant==='horned'||variant==='axe'){
+   shape(this.add.triangle(-size*.65,-size*.7,-size*.28,0,0,-size*.8,size*.4,0,0xf2d5a4));
+   shape(this.add.triangle(size*.65,-size*.7,-size*.4,0,0,-size*.8,size*.28,0,0xf2d5a4));
+  }else if(variant==='winged'){
+   shape(this.add.triangle(-size*.9,-size*.1,0,0,-size*.5,-size*1.4,-size*1.2,-size*.85,0x7c47a8));
+   shape(this.add.triangle(size*.9,-size*.1,0,0,size*.5,-size*1.4,size*1.2,-size*.85,0x7c47a8));
+  }
+  const body=shape(this.add.ellipse(0,0,size*2.1,size*1.65,color).setStrokeStyle(3,outline));
+  shape(this.add.ellipse(-size*.45,-size*.4,size*.5,size*.21,0xffffff,.4));
+  for(const sign of [-1,1]){
+   shape(this.add.ellipse(sign*size*.35,-size*.13,size*.23,size*.32,0x16242a));
+   shape(this.add.circle(sign*size*.39,-size*.2,Math.max(2,size*.065),0xffffff));
+  }
+  shape(this.add.arc(0,size*.27,size*.22,10,170,false,0x263238).setStrokeStyle(2,0x263238));
+  if(['sword','spear','axe'].includes(variant)){
+   shape(this.add.rectangle(size*.95,-size*.15,Math.max(4,size*.14),size*1.6,0x9b744b).setAngle(-20));
+   if(variant==='sword')shape(this.add.triangle(size*1.2,-size*1.1,-size*.22,size*.3,0,-size*.65,size*.22,size*.3,0xcbd5da));
+   if(variant==='spear')shape(this.add.triangle(size*1.2,-size*1.15,-size*.22,size*.32,0,-size*.75,size*.22,size*.32,0xd7dbd8));
+   if(variant==='axe')shape(this.add.ellipse(size*1.35,-size*.85,size*.7,size*.55,0xb8c2c5));
+  }
+  if(variant==='king'){
+   shape(this.add.triangle(-size*.5,-size*.9,-size*.55,0,-size*.3,-size*.75,-size*.1,0,0xf0c44b));
+   shape(this.add.triangle(0,-size*1.05,-size*.25,0,0,-size*.9,size*.25,0,0xf0c44b));
+   shape(this.add.triangle(size*.5,-size*.9,-size*.1,0,size*.3,-size*.75,size*.55,0,0xf0c44b));
+  }
+  // Liczba jest ponad głową, nigdy na twarzy slime'a.
+  const label=this.add.text(0,-size*1.32,String(n),{fontFamily:'Arial',fontSize:size>30?'23px':'19px',fontStyle:'bold',color:'#ffffff',stroke:'#342044',strokeThickness:4}).setOrigin(.5);
+  const view=this.add.container(x,y,[...parts,label]).setDepth(7);
+  const enemy={n,x,y,size,view,label,body,boss:!!options.boss,swarm:!!options.swarm,hitPoints:options.hitPoints||0,armor:options.boss?10:0,baseColor:color,bornMinute:Math.floor((this.clock-this.startTime)/60000)};
   this.enemies.push(enemy);
   return enemy;
  }
@@ -1254,6 +1302,7 @@ class Meadow extends Phaser.Scene{
   const dash=(this.isPressed('space')||this.touchDash)&&now-this.lastDash>4000;
   if(dash){this.lastDash=now;this.dashUntil=now+220;this.invulnUntil=now+220;this.dashDirection.copy(this.lastMove);}
   const dashing=now<this.dashUntil;
+  if(this.heroVisual){this.heroVisual.setScale(dx<-.15?-1:1,1);this.heroBoots[0].y=10+(len?Math.sin(now*.018)*3:0);this.heroBoots[1].y=10-(len?Math.sin(now*.018)*3:0);}
   const mx=dashing?this.dashDirection.x:dx,my=dashing?this.dashDirection.y:dy;
   const speed=dashing?780:220*this.moveMultiplier;
   this.moveAround(this.player,mx,my,dt,speed,16);
