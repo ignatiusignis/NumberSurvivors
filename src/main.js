@@ -1,4 +1,4 @@
-// Number Survivors 0.7.2 — rysunkowe Zarośla i Gęsty Las
+// Number Survivors 0.7.3 — suche równiny, pustkowia i organiczne granice
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -456,6 +456,31 @@ class Meadow extends Phaser.Scene{
   }
   g.fillStyle(0x6da34e,.75).fillEllipse(x-r*.27,y-r*.92,r*.65,r*.24);
  }
+ drawDryGround(g,x,y,kind,variant,s){
+  const volcanic=kind==='badlands';
+  if(variant===0){
+   // Niskie, nieregularne skały i ich miękkie cienie.
+   g.fillStyle(0x30291f,.2).fillEllipse(x+4*s,y+9*s,31*s,11*s);
+   g.fillStyle(volcanic?0x513e3a:0x716956).fillPoints([{x:x-15*s,y:y+4*s},{x:x-9*s,y:y-8*s},{x:x+2*s,y:y-13*s},{x:x+13*s,y:y-4*s},{x:x+17*s,y:y+6*s}],true);
+   g.fillStyle(volcanic?0x8e6c60:0xb3a085).fillPoints([{x:x-9*s,y:y-8*s},{x:x+2*s,y:y-13*s},{x:x+6*s,y:y-2*s},{x:x-3*s,y:y+1*s}],true);
+  }else if(variant===1){
+   // Suche, powykręcane gałązki.
+   g.lineStyle(3*s,volcanic?0x3e302b:0x6a5035).lineBetween(x,y+7*s,x-2*s,y-14*s);
+   g.lineStyle(2*s,volcanic?0x4c332d:0x806040);
+   g.lineBetween(x-2*s,y-8*s,x-13*s,y-17*s);
+   g.lineBetween(x-2*s,y-4*s,x+11*s,y-14*s);
+   g.lineBetween(x+6*s,y-9*s,x+12*s,y-20*s);
+  }else if(volcanic){
+   // Spękana ziemia, żar i lekki dym: statyczne, bez kosztu animacji.
+   g.fillStyle(0x3c302c,.85).fillEllipse(x,y,31*s,14*s);
+   g.lineStyle(2*s,0xf09b47,.75).lineBetween(x-9*s,y,x+7*s,y+2*s);
+   g.fillStyle(0xe7b4a0,.17).fillEllipse(x-4*s,y-12*s,15*s,13*s);
+   g.fillStyle(0xd6b3a2,.12).fillEllipse(x+2*s,y-22*s,18*s,14*s);
+  }else{
+   g.fillStyle(0xc9ae74,.55).fillEllipse(x,y,22*s,8*s);
+   for(let j=-1;j<=1;j++)g.lineStyle(2*s,0x9a884f).lineBetween(x+j*5*s,y+4*s,x+(j*7+2)*s,y-10*s);
+  }
+ }
  drawWildGround(g,x,y,kind,variant,s){
   if(kind==='thicket'){
    if(variant===0){ // paproć
@@ -563,6 +588,17 @@ class Meadow extends Phaser.Scene{
    const scale=.7+hash(cx,cy,4103+i*4)*.65;
    this.drawWildGround(g,x,y,kind,variant,scale);
   }
+  // Drobne elementy biomów 5 i 6: generowane raz na fragment terenu.
+  for(let i=0;i<25;i++){
+   const x=ox+24+hash(cx,cy,5100+i*4)*(CHUNK-48);
+   const y=oy+24+hash(cx,cy,5101+i*4)*(CHUNK-48);
+   const kind=this.biomeAt(x,y);
+   if(kind!=='plains'&&kind!=='badlands')continue;
+   if(biomeWeights(x,y)[kind]<.8||roadNearest(x,y).distance<105||this.regionBoundaryAt(x,y,28)||this.barrierAt(x,y,28))continue;
+   const v=Math.floor(hash(cx,cy,5102+i*4)*3);
+   const scale=.75+hash(cx,cy,5103+i*4)*.65;
+   this.drawDryGround(g,x,y,kind,v,scale);
+  }
   // Ciągłe bariery: rzeka z przejściem na północy oraz gęsty las z obejściem na południu.
   // Rzeka z ciągłych czworokątów: bez wielkich nakładających się kół.
   // Wspólne krawędzie segmentów eliminują schodki i półokrągłe artefakty.
@@ -611,14 +647,31 @@ class Meadow extends Phaser.Scene{
    }
   }
   // Twarde granice biomów poza szerokimi bramami w pobliżu drogi.
-  for(let yy=oy;yy<oy+CHUNK;yy+=48)for(let xx=ox;xx<ox+CHUNK;xx+=48){
-   if(this.regionBoundaryAt(xx+24,yy+24,24)){
-    const kind=this.biomeAt(xx+24,yy+24);
-    const color=kind==='swamp'?0x315f77:kind==='forest'||kind==='thicket'?0x234b2c:0x555b4b;
-    g.fillStyle(color,.95).fillRect(xx,yy,49,49);
-    if(kind==='forest'||kind==='thicket')g.fillStyle(0x367342).fillCircle(xx+24,yy+24,24);
+  // Granice: zamiast szarej szachownicy — organiczne kępy i głazy.
+  // Test kolizji jest niezmieniony. Próbkujemy również sąsiedni chunk,
+  // by korony na jego krawędzi nie urywały się prostą linią.
+  for(let yy=Math.floor((oy-48)/40)*40;yy<oy+CHUNK+48;yy+=40)
+   for(let xx=Math.floor((ox-48)/40)*40;xx<ox+CHUNK+48;xx+=40){
+    if(!this.regionBoundaryAt(xx+20,yy+20,25))continue;
+    const kind=this.biomeAt(xx+20,yy+20);
+    const seedX=Math.floor(xx/40),seedY=Math.floor(yy/40);
+    const jitterX=(hash(seedX,seedY,6101)-.5)*10;
+    const jitterY=(hash(seedX,seedY,6102)-.5)*10;
+    const x=xx+20+jitterX,y=yy+20+jitterY;
+    const size=25+hash(seedX,seedY,6103)*8;
+    if(kind==='forest'||kind==='thicket'||kind==='meadow'){
+     g.fillStyle(0x183f29,.95).fillEllipse(x+3,y+5,size*2.25,size*1.95);
+     g.fillStyle(kind==='thicket'?0x427a39:0x2d6338).fillEllipse(x-2,y-3,size*2.1,size*1.9);
+     g.fillStyle(0x639347,.7).fillEllipse(x-9,y-11,size*.8,size*.38);
+    }else if(kind==='swamp'){
+     g.fillStyle(0x46573c,.94).fillEllipse(x,y,size*2.3,size*1.6);
+     g.fillStyle(0x738052,.85).fillEllipse(x-4,y-4,size*1.6,size*.9);
+    }else{
+     g.fillStyle(kind==='badlands'?0x57423a:0x655b47,.96).fillEllipse(x+3,y+5,size*2.1,size*1.65);
+     g.fillStyle(kind==='badlands'?0x89614f:0x93866b).fillEllipse(x-3,y-4,size*1.7,size*1.4);
+     g.fillStyle(0xb5a186,.55).fillEllipse(x-9,y-10,size*.7,size*.26);
+    }
    }
-  }
   // Zaokrąglona trasa: krzywe kwadratowe łagodzą zakręty, ale zachowują
   // wszystkie punkty szlaku i jego dotychczasowe połączenia.
   const path=[];
