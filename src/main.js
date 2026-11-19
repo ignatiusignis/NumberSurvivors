@@ -1,4 +1,4 @@
-// Number Survivors 0.4.2 — sterowanie dotykowe i zabezpieczone wejście do zamku
+// Number Survivors 0.4.3 — czytelne przyciski dotykowe bez dolnego paska
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -151,6 +151,7 @@ class Meadow extends Phaser.Scene{
   this.dashHint=txt(783,558,'UNIK',12).setOrigin(.5,0);
   this.input.keyboard.enabled=false; // Obsługa przez window capture, również w Safari na iPadzie.
   this.layoutHUD(this.scale.width,this.scale.height);
+  this.setControlMode(this.controlSelect.value);
   this.scale.on('resize',this.onGameResize,this);
   this.events.once('shutdown',()=>{this.keyboardActivate.replaceWith(this.keyboardActivate.cloneNode(true));window.removeEventListener('keydown',this.onPhysicalKeyDown,true);window.removeEventListener('keyup',this.onPhysicalKeyUp,true);window.removeEventListener('blur',this.onKeyboardBlur);this.scale.off('resize',this.onGameResize,this);});
   // Pierwsza fala dopiero po ustawieniu kamery w pierwszej klatce.
@@ -159,6 +160,11 @@ class Meadow extends Phaser.Scene{
  }
  setControlMode(mode){
   this.controlMode=mode;this.touchControls.hidden=mode!=='touch';
+  if(this.bottomPanel){
+   const show=mode!=='touch';
+   this.bottomPanel.setVisible(show);this.dashBox.setVisible(show);this.dashLabel.setVisible(show);this.dashHint.setVisible(show);
+   this.primeButtons.forEach(b=>{b.bg.setVisible(show);b.key.setVisible(show);b.label.setVisible(show);b.lock.setVisible(show&&this.locked.includes(Number(b.label.text)));});
+  }
   if(mode!=='touch'){this.touchVector.x=0;this.touchVector.y=0;this.touchDash=false;}
  }
  activateKeyboard(){
@@ -765,9 +771,14 @@ class Meadow extends Phaser.Scene{
    const selected=this.active.includes(PRIMES[i]);
    button.bg.setFillStyle(selected?0x278a4a:0x515b55).setStrokeStyle(2,selected?0x8cde9b:0x7d8980);
    button.label.setColor(selected?'#ffffff':'#c0c8c1');
-   button.lock.setVisible(this.locked.includes(PRIMES[i]));
+   button.lock.setVisible(this.controlMode!=='touch'&&this.locked.includes(PRIMES[i]));
+  });
+  this.touchPrimes.querySelectorAll('button').forEach((button,i)=>{
+   const selected=this.active.includes(PRIMES[i]);button.classList.toggle('is-selected',selected);
+   button.setAttribute('aria-pressed',String(selected));
   });
   const dashReady=now-this.lastDash>=4000;
+  document.getElementById('touch-dash').classList.toggle('is-cooling',!dashReady);
   this.dashBox.setFillStyle(dashReady?0x278a4a:0x515b55).setStrokeStyle(2,dashReady?0x8cde9b:0x7d8980);
  }
  upgradeLevels(){
