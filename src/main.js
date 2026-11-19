@@ -1,4 +1,4 @@
-// Number Survivors 0.4.1 — diagnostyka i aktywacja klawiatury iPad
+// Number Survivors 0.4.2 — sterowanie dotykowe i zabezpieczone wejście do zamku
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -61,6 +61,36 @@ class Meadow extends Phaser.Scene{
   this.cameras.main.setBackgroundColor('#79b65d');
   this.terrainChunks=new Map();this.obstacleChunks=new Map();
   this.physicalKeys=new Set();
+  this.touchVector={x:0,y:0};this.touchDash=false;this.controlMode='keyboard';
+  this.controlSelect=document.getElementById('control-mode');
+  this.touchControls=document.getElementById('touch-controls');
+  this.touchStick=document.getElementById('touch-stick');
+  this.touchKnob=document.getElementById('touch-knob');
+  this.controlSelect.value=matchMedia('(pointer:coarse)').matches?'touch':'keyboard';
+  this.setControlMode(this.controlSelect.value);
+  this.controlSelect.addEventListener('change',()=>this.setControlMode(this.controlSelect.value));
+  const joystick=(event)=>{
+   const rect=this.touchStick.getBoundingClientRect(),cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
+   const dx=event.clientX-cx,dy=event.clientY-cy,len=Math.hypot(dx,dy),max=rect.width*.35;
+   const scale=Math.min(1,max/(len||1));
+   this.touchVector.x=dx*scale/max;this.touchVector.y=dy*scale/max;
+   this.touchKnob.style.transform='translate('+dx*scale+'px,'+dy*scale+'px)';
+  };
+  this.touchStick.addEventListener('pointerdown',event=>{event.preventDefault();this.touchStick.setPointerCapture(event.pointerId);joystick(event);});
+  this.touchStick.addEventListener('pointermove',event=>{if(this.touchStick.hasPointerCapture(event.pointerId))joystick(event);});
+  const resetStick=()=>{this.touchVector.x=0;this.touchVector.y=0;this.touchKnob.style.transform='translate(0,0)';};
+  this.touchStick.addEventListener('pointerup',resetStick);this.touchStick.addEventListener('pointercancel',resetStick);
+  const dashButton=document.getElementById('touch-dash');
+  dashButton.addEventListener('pointerdown',event=>{event.preventDefault();this.touchDash=true;});
+  dashButton.addEventListener('pointerup',()=>this.touchDash=false);
+  dashButton.addEventListener('pointercancel',()=>this.touchDash=false);
+  document.getElementById('touch-pause').addEventListener('click',()=>{if(!this.upgradeOpen)this.togglePause();});
+  document.getElementById('touch-resume').addEventListener('click',()=>{if(this.manualPause)this.togglePause();});
+  this.touchPrimes=document.getElementById('touch-primes');
+  for(let i=0;i<PRIMES.length;i++){
+   const button=document.createElement('button');button.type='button';button.textContent=String(PRIMES[i]);button.addEventListener('click',()=>{if(this.upgradeOpen)this.chooseUpgrade(i);else if(!this.manualPause)this.selectPrime(PRIMES[i]);});this.touchPrimes.append(button);
+  }
+  document.getElementById('touch-upgrades').addEventListener('click',()=>{if(this.upgradeOpen)this.chooseUpgrade(0);});
   this.keyboardCapture=document.getElementById('keyboard-capture');
   this.keyboardStatus=document.getElementById('keyboard-status');
   this.keyboardLast=document.getElementById('keyboard-last');
@@ -93,6 +123,7 @@ class Meadow extends Phaser.Scene{
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
+  this.highestRegion=1;
   this.active=[2];this.locked=[];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.manualPause=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.multishot=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.potionLevel=0;this.drops=[];this.special=null;this.eventIndex=0;this.warningUntil=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
   // Stałe elementy HUD: paski w lewym górnym rogu, dzielniki i unik na dole.
   const ui=(obj)=>obj.setScrollFactor(0).setDepth(100);
@@ -124,6 +155,10 @@ class Meadow extends Phaser.Scene{
   // Pierwsza fala dopiero po ustawieniu kamery w pierwszej klatce.
   this.lastSpawn=-1;
   this.updateTerrain();
+ }
+ setControlMode(mode){
+  this.controlMode=mode;this.touchControls.hidden=mode!=='touch';
+  if(mode!=='touch'){this.touchVector.x=0;this.touchVector.y=0;this.touchDash=false;}
  }
  activateKeyboard(){
   this.physicalKeys.clear();
@@ -164,9 +199,11 @@ class Meadow extends Phaser.Scene{
   const dungeonOuter=x1>DUNGEON.left&&x0<DUNGEON.right&&y1>DUNGEON.top&&y0<DUNGEON.bottom;
   if(castleOuter){
    // Brama południowa i przejście do lochów na wschodzie.
-   if(x0<CASTLE.left+75&&x1>CASTLE.left&&y1>CASTLE.top&&y0<CASTLE.bottom)return true;
+   // Jedyna brama zewnętrzna prowadzi od pustkowi, po zachodniej stronie.
+   if(x0<CASTLE.left+75&&x1>CASTLE.left&&y1>CASTLE.top&&y0<CASTLE.bottom&&Math.abs(y-2350)>210)return true;
    if(y0<CASTLE.top+75&&y1>CASTLE.top)return true;
-   if(y1>CASTLE.bottom-75&&y0<CASTLE.bottom&&Math.abs(x-9300)>190)return true;
+   // Południowa ściana zamku jest w całości nieprzebyta.
+   if(y1>CASTLE.bottom-75&&y0<CASTLE.bottom)return true;
    if(x1>CASTLE.right-75&&x0<CASTLE.right&&Math.abs(y-2300)>170)return true;
    // Dziedziniec, dwa skrzydła z drzwiami pośrodku.
    if(x1>8800&&x0<8900&&y1>1450&&y0<3150&&Math.abs(y-2300)>180)return true;
@@ -198,6 +235,7 @@ class Meadow extends Phaser.Scene{
   const message=document.getElementById('teleport-status');
   if(!target){message.textContent='Nie znaleziono bezpiecznego miejsca w pobliżu.';return;}
   this.player.setPosition(target.x,target.y);
+  this.highestRegion=Math.max(this.highestRegion||1,regionAt(target.x,target.y).id<=6?regionAt(target.x,target.y).id:6);
   this.cameras.main.centerOn(target.x,target.y);
   this.updateTerrain();this.drawMinimap();
   message.textContent='Przeniesiono do: '+Math.round(target.x)+', '+Math.round(target.y)+' — naciśnij P, aby grać.';
@@ -236,6 +274,9 @@ class Meadow extends Phaser.Scene{
  }
  blocked(x,y,radius){
   if(x<radius||y<radius||x>WORLD-radius||y>WORLD-radius||this.barrierAt(x,y,radius)||this.structureBlocked(x,y,radius)||this.regionBoundaryAt(x,y,radius))return true;
+  const targetRegion=regionAt(x,y);
+  if(targetRegion.id===7&&this.highestRegion<6)return true;
+  if(targetRegion.id<=6&&targetRegion.id>this.highestRegion+1)return true;
   return this.nearbyObstacles(x,y).some(o=>Math.hypot(x-o.x,y-o.y)<o.radius+radius);
  }
  moveAround(entity,vx,vy,dt,speed,radius){
@@ -658,16 +699,18 @@ class Meadow extends Phaser.Scene{
   if(this.lastSpawn<0){this.spawnWave(2);this.lastSpawn=now;}
   if(this.health<=0){this.scene.pause();this.add.text(this.cameras.main.scrollX+400,this.cameras.main.scrollY+250,'KONIEC GRY',{font:'bold 52px Arial',color:'#fff'}).setOrigin(.5);return;}
   const dt=Math.min(delta,50)/1000;
-  let dx=Number(this.isPressed('d','right'))-Number(this.isPressed('a','left'));
-  let dy=Number(this.isPressed('s','down'))-Number(this.isPressed('w','up'));
+  let dx=Number(this.isPressed('d','right'))-Number(this.isPressed('a','left'))+(this.controlMode==='touch'?this.touchVector.x:0);
+  let dy=Number(this.isPressed('s','down'))-Number(this.isPressed('w','up'))+(this.controlMode==='touch'?this.touchVector.y:0);
   const len=Math.hypot(dx,dy);
   if(len){dx/=len;dy/=len;this.lastMove.set(dx,dy);}
-  const dash=this.isPressed('space')&&now-this.lastDash>4000;
+  const dash=(this.isPressed('space')||this.touchDash)&&now-this.lastDash>4000;
   if(dash){this.lastDash=now;this.dashUntil=now+220;this.invulnUntil=now+220;this.dashDirection.copy(this.lastMove);}
   const dashing=now<this.dashUntil;
   const mx=dashing?this.dashDirection.x:dx,my=dashing?this.dashDirection.y:dy;
   const speed=dashing?780:220*this.moveMultiplier;
   this.moveAround(this.player,mx,my,dt,speed,16);
+  const currentRegion=regionAt(this.player.x,this.player.y);
+  if(currentRegion.id<=6)this.highestRegion=Math.max(this.highestRegion,currentRegion.id);
   this.updateTerrain();
   const minute=Math.floor((now-this.startTime)/60000);
   if(minute>=5&&minute<=25&&minute%5===0&&this.eventIndex<minute/5){this.eventIndex=minute/5;this.prepareEvent(minute);}
