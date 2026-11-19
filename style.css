@@ -231,3 +231,21 @@ body:not(.touch-mode) #touch-controls{display:none!important}
 #end-message{font-size:clamp(16px,2.7vw,22px);line-height:1.45;margin:0 0 30px}
 #end-menu{border:2px solid #b6dca2;border-bottom:5px solid #183b21;border-radius:11px;background:linear-gradient(#4f9a51,#256a38);color:#fff7e9;font:bold clamp(17px,2.5vw,22px) Arial;padding:15px 26px;cursor:pointer;touch-action:manipulation}
 #end-menu:hover,#end-menu:focus-visible{filter:brightness(1.16);outline:2px solid #f1d38b}
+
+/* Wybór klasy: górne 2/3 postacie, dolne 1/3 trudność. */
+#main-menu:has(.character-select-panel:not([hidden])) .menu-scene{width:min(920px,100%);height:min(92vh,720px);display:flex;flex-direction:column;}
+.character-select-panel:not([hidden]){display:flex;flex-direction:column;flex:1;min-height:0;gap:6px;}
+.character-select-panel>h3{margin:0;font-size:clamp(16px,2.6vh,25px);}
+.character-selection{display:flex;flex:2;min-height:0;gap:12px;align-items:stretch;justify-content:center;}
+.character-choice{position:relative;display:flex;flex:1;min-width:0;flex-direction:column;align-items:center;justify-content:center;gap:7px;cursor:pointer;border:2px solid #63836a;border-radius:12px;background:#203b30;padding:9px;color:#fff;}
+.character-choice:has(input:checked){border-color:#f1d17d;background:#36543d;box-shadow:inset 0 0 0 2px #a58b47;}
+.character-choice input{position:absolute;top:8px;left:8px;accent-color:#e6bf63;}
+.character-avatar{font-size:clamp(32px,7vh,75px);line-height:1.1;}
+.character-choice strong{font-size:clamp(15px,2.8vh,23px);}
+.character-choice small{font-size:clamp(10px,1.8vh,14px);color:#d3e1d2;}
+.difficulty-selection{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:5px;}
+.difficulty-selection h3{margin:0;font-size:clamp(15px,2.4vh,21px);}
+.difficulty-selection label{font-size:12px;}
+.difficulty-selection select{max-width:520px;width:100%;margin:0 auto;padding:7px;}
+.difficulty-selection button{max-width:520px;width:100%;margin:2px auto 0;padding:9px;}
+@media(max-height:420px){#main-menu:has(.character-select-panel:not([hidden])) .menu-scene{height:96vh;padding:8px 14px;}.character-select-panel:not([hidden]){gap:2px;}.character-choice{gap:2px;padding:4px;}.character-avatar{font-size:30px;}.character-choice strong{font-size:14px;}.character-choice small{font-size:10px;}.difficulty-selection{gap:2px;}.difficulty-selection select,.difficulty-selection button{padding:4px;}}
