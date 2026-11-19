@@ -1,4 +1,4 @@
-// Number Survivors 0.7.4 — kamienny zamek, zamknięte lochy i poprawki dróg
+// Number Survivors 0.7.5 — zamek, lochy, rzeka, drzewo i zakręty
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -651,6 +651,15 @@ class Meadow extends Phaser.Scene{
     riverBand(y1,y2,152,0x69866b);
     riverBand(y1,y2,144,0x3d8292);
    }
+   // Naturalne zaokrąglenie końca rzeki; warstwy wypełniane od brzegu do środka.
+   // Końcowy łuk jest rysowany raz, a nie na każdym odcinku.
+   for(const endY of [8100,11700]){
+    const rx=this.riverX(endY)+5*Math.sin(endY/91)+3*Math.sin(endY/37);
+    if(rx+160<ox||rx-160>ox+CHUNK||endY+165<oy||endY-165>oy+CHUNK)continue;
+    for(const [radius,color] of [[159,0x394f3b],[152,0x69866b],[144,0x3d8292]]){
+     g.fillStyle(color,1).fillCircle(rx,endY,radius);
+    }
+   }
    for(let i=0;i<12;i++){
     const y=oy+hash(cx,cy,3800+i*2)*CHUNK;
     const x=this.riverX(y)+(hash(cx,cy,3801+i*2)-.5)*190;
@@ -745,28 +754,30 @@ class Meadow extends Phaser.Scene{
    }
    return Phaser.Display.Color.GetColor(Math.round(red/total),Math.round(green/total),Math.round(blue/total));
   };
-  for(const [width,paletteIndex] of [[124,0],[108,1]]){
-   const half=width/2;
+  // Zamiast wielu wąskich trapezów tworzymy jeden obrys z wierzchołkami
+  // współdzielonymi przez kolejne segmenty. Eliminuje to trójkątne szwy.
+  const roadOutline=half=>{
+   const left=[],right=[];
+   for(let i=0;i<path.length;i++){
+    const p=path[i],prev=path[Math.max(0,i-1)],next=path[Math.min(path.length-1,i+1)];
+    const d1=Math.hypot(p.x-prev.x,p.y-prev.y)||1,d2=Math.hypot(next.x-p.x,next.y-p.y)||1;
+    const ax=-(p.y-prev.y)/d1,ay=(p.x-prev.x)/d1;
+    const bx=-(next.y-p.y)/d2,by=(next.x-p.x)/d2;
+    const mx=ax+bx,my=ay+by,ml=Math.hypot(mx,my)||1;
+    const dot=Math.max(.65,(mx*bx+my*by)/ml);
+    const length=Math.min(half*1.4,half/dot);
+    left.push({x:p.x+mx/ml*length,y:p.y+my/ml*length});
+    right.push({x:p.x-mx/ml*length,y:p.y-my/ml*length});
+   }
+   return {left,right};
+  };
+  for(const [width,index] of [[124,0],[108,1]]){
+   const outline=roadOutline(width/2);
    for(let i=1;i<path.length;i++){
     const p=path[i-1],q=path[i];
     if(Math.max(p.x,q.x)<ox-70||Math.min(p.x,q.x)>ox+CHUNK+70||Math.max(p.y,q.y)<oy-70||Math.min(p.y,q.y)>oy+CHUNK+70)continue;
-    const dx=q.x-p.x,dy=q.y-p.y,length=Math.hypot(dx,dy);
-    if(length<.001)continue;
-    const nx=-dy/length*half,ny=dx/length*half;
-    // Połączenie sąsiednich odcinków wspólną krawędzią: bez klinów.
-    const join=(index,side)=>{
-     const point=path[index],prev=path[Math.max(0,index-1)],next=path[Math.min(path.length-1,index+1)];
-     const vx1=point.x-prev.x,vy1=point.y-prev.y,l1=Math.hypot(vx1,vy1)||1;
-     const vx2=next.x-point.x,vy2=next.y-point.y,l2=Math.hypot(vx2,vy2)||1;
-     const ax=-vy1/l1,ay=vx1/l1,bx=-vy2/l2,by=vx2/l2;
-     const mx=ax+bx,my=ay+by,ml=Math.hypot(mx,my)||1;
-     const dot=Math.max(.5,(mx/ml)*bx+(my/ml)*by);
-     const dist=Math.min(half*1.65,half/dot)*side;
-     return {x:point.x+mx/ml*dist,y:point.y+my/ml*dist};
-    };
-    const pL=join(i-1,1),pR=join(i-1,-1),qL=join(i,1),qR=join(i,-1);
-    const color=blendRoad((p.x+q.x)/2,(p.y+q.y)/2,paletteIndex);
-    g.fillStyle(color,1).fillPoints([pL,qL,qR,pR],true);
+    const color=blendRoad((p.x+q.x)/2,(p.y+q.y)/2,index);
+    g.fillStyle(color,1).fillPoints([outline.left[i-1],outline.left[i],outline.right[i],outline.right[i-1]],true);
    }
   }
   // Łagodne zamknięcie drogi na jej ostatnim punkcie.
@@ -842,27 +853,26 @@ class Meadow extends Phaser.Scene{
     this.drawForestTree(g,o.x,o.y,o.radius,Math.floor(o.x+o.y));
    }
   }
-  // Stary Trakt — powalone drzewo przy zachodniej granicy świata.
-  // Rysunek jest częścią tekstury; granica mapy nadal odpowiada za blokadę.
+  // Stary Trakt: zwalony pień leży W POPRZEK poziomej drogi.
+  // Korona i korzenie są odsunięte od środka trasy, by czytelnie pokazać blokadę.
   if(cx===0&&cy===Math.floor(11500/CHUNK)){
-   const x=105,y=11500;
-   g.fillStyle(0x2a4826,.24).fillEllipse(x+14,y+23,130,180);
-   // Korzenie i masywny pień leżący w poprzek drogi.
-   g.lineStyle(55,0x543924,1).lineBetween(x-19,y-90,x+24,y+94);
-   g.lineStyle(39,0x90613a,1).lineBetween(x-19,y-90,x+24,y+94);
-   g.lineStyle(5,0xb88954,.7).lineBetween(x-13,y-80,x+30,y+75);
-   for(const [dx,dy,ex,ey] of [[-18,-75,-68,-120],[10,27,73,2],[22,73,72,120]]){
-    g.lineStyle(13,0x644329,1).lineBetween(x+dx,y+dy,x+ex,y+ey);
-    g.lineStyle(7,0x9b6c42,1).lineBetween(x+dx,y+dy,x+ex,y+ey);
+   const x=112,y=11500;
+   g.fillStyle(0x254b29,.25).fillEllipse(x+8,y+10,205,155);
+   g.lineStyle(48,0x543922).lineBetween(x-74,y+82,x+71,y-81);
+   g.lineStyle(36,0x98653b).lineBetween(x-74,y+82,x+71,y-81);
+   g.lineStyle(4,0xc28b50,.7).lineBetween(x-66,y+74,x+74,y-75);
+   for(const [ax,ay,bx,by] of [[-58,62,-107,85],[-22,19,-78,-20],[40,-45,91,-110]]){
+    g.lineStyle(11,0x65432a).lineBetween(x+ax,y+ay,x+bx,y+by);
+    g.lineStyle(5,0x9b7044).lineBetween(x+ax,y+ay,x+bx,y+by);
    }
-   for(const [dx,dy,rr] of [[-56,-113,28],[-31,-123,30],[57,-1,27],[72,114,28]]){
-    g.fillStyle(0x214e2b).fillCircle(x+dx+4,y+dy+5,rr+4);
-    g.fillStyle(0x4e973d).fillCircle(x+dx,y+dy,rr);
-    g.fillStyle(0x78b84d,.8).fillCircle(x+dx-8,y+dy-9,rr*.42);
+   for(const [dx,dy,r] of [[-84,85,27],[-107,52,24],[73,-88,30],[97,-111,24]]){
+    g.fillStyle(0x1f4a2a).fillCircle(x+dx+3,y+dy+4,r+3);
+    g.fillStyle(0x4f963c).fillCircle(x+dx,y+dy,r);
+    g.fillStyle(0x86b850,.7).fillEllipse(x+dx-8,y+dy-8,r*.85,r*.42);
    }
-   for(const [dx,dy] of [[-55,40],[56,74],[-34,125]]){
-    g.fillStyle(0x617e3b).fillEllipse(x+dx,y+dy,32,12);
-    g.lineStyle(3,0x3d7034).lineBetween(x+dx,y+dy,x+dx+5,y+dy-19);
+   for(const [dx,dy] of [[-44,-99],[86,72],[-100,-29]]){
+    g.fillStyle(0x557d3b).fillEllipse(x+dx,y+dy,25,10);
+    g.fillStyle(0xfff3d7).fillCircle(x+dx+3,y+dy-4,3);
    }
   }
   const textureKey='terrain-'+key;
