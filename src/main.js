@@ -1,4 +1,4 @@
-// Number Survivors 0.5.0 — osobny zamek, opcje i adaptacyjny interfejs
+// Number Survivors 0.5.1 — optymalizacja kolizji i renderowania biomów
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -206,13 +206,11 @@ class Meadow extends Phaser.Scene{
  regionBoundaryAt(x,y,radius=0){
   const current=regionAt(x,y);
   if(current.kind==='castle'||current.kind==='dungeon')return false;
-  const nearRoad=roadNearest(x,y).distance<740+radius;
-  if(nearRoad)return false;
-  const offsets=[[radius+32,0],[-radius-32,0],[0,radius+32],[0,-radius-32]];
-  return offsets.some(([dx,dy])=>{
-   const other=regionAt(x+dx,y+dy);
-   return other.kind!=='castle'&&other.kind!=='dungeon'&&other.id!==current.id;
-  });
+  const d=radius+32;
+  const neighbors=[regionAt(x+d,y),regionAt(x-d,y),regionAt(x,y+d),regionAt(x,y-d)];
+  // Większość świata nie leży na granicy: pomijamy wtedy kosztowny test szlaku.
+  const boundary=neighbors.some(other=>other.kind!=='castle'&&other.kind!=='dungeon'&&other.id!==current.id);
+  return boundary&&roadNearest(x,y).distance>=740+radius;
  }
  inRect(x,y,r){return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;}
  dungeonOpen(x,y){
@@ -312,6 +310,19 @@ class Meadow extends Phaser.Scene{
   for(let yy=Math.max(0,cy-1);yy<=Math.min(WORLD/CHUNK-1,cy+1);yy++)for(let xx=Math.max(0,cx-1);xx<=Math.min(WORLD/CHUNK-1,cx+1);xx++)all.push(...this.obstaclesFor(xx,yy));
   return all;
  }
+ // Szybka kolizja: bez tworzenia tablic, bez Math.hypot i tylko w sąsiednich chunkach.
+ hitsObstacle(x,y,radius){
+  const cx=Math.floor(x/CHUNK),cy=Math.floor(y/CHUNK);
+  for(let yy=Math.max(0,cy-1);yy<=Math.min(WORLD/CHUNK-1,cy+1);yy++){
+   for(let xx=Math.max(0,cx-1);xx<=Math.min(WORLD/CHUNK-1,cx+1);xx++){
+    for(const o of this.obstaclesFor(xx,yy)){
+     const dx=x-o.x,dy=y-o.y,limit=o.radius+radius;
+     if(Math.abs(dx)<limit&&Math.abs(dy)<limit&&dx*dx+dy*dy<limit*limit)return true;
+    }
+   }
+  }
+  return false;
+ }
  blocked(x,y,radius){
   if(x<radius||y<radius||x>WORLD-radius||y>WORLD-radius||this.barrierAt(x,y,radius)||this.structureBlocked(x,y,radius)||this.regionBoundaryAt(x,y,radius))return true;
   const targetRegion=regionAt(x,y);
@@ -319,7 +330,7 @@ class Meadow extends Phaser.Scene{
    if(targetRegion.id===7&&this.highestRegion<6)return true;
    if(targetRegion.id<=6&&targetRegion.id>this.highestRegion+1)return true;
   }
-  return this.nearbyObstacles(x,y).some(o=>Math.hypot(x-o.x,y-o.y)<o.radius+radius);
+  return this.hitsObstacle(x,y,radius);
  }
  moveAround(entity,vx,vy,dt,speed,radius){
   const step=speed*dt;
@@ -411,23 +422,23 @@ class Meadow extends Phaser.Scene{
   }
   // Mur lasu oddziela północną część świata od pozostałych regionów.
   // Ta sama funkcja wyznacza grafikę i kolizję.
-  for(let xx=ox;xx<ox+CHUNK;xx+=24){
-   const wallY=4070+Math.sin((xx+12)/820)*65;
+  for(let xx=ox;xx<ox+CHUNK;xx+=48){
+   const wallY=4070+Math.sin((xx+24)/820)*65;
    if(wallY+190<oy||wallY-190>oy+CHUNK)continue;
-   for(let yy=Math.max(oy,Math.floor((wallY-190)/24)*24);yy<Math.min(oy+CHUNK,wallY+190);yy+=24){
-    if(this.castleForestAt(xx+12,yy+12,10)){
-     g.fillStyle(0x173d24).fillCircle(xx+12,yy+12,22);
-     g.fillStyle(0x2b6835).fillCircle(xx+7,yy+5,15);
+   for(let yy=Math.max(oy,Math.floor((wallY-190)/48)*48);yy<Math.min(oy+CHUNK,wallY+190);yy+=48){
+    if(this.castleForestAt(xx+24,yy+24,24)){
+     g.fillStyle(0x173d24).fillCircle(xx+24,yy+24,35);
+     g.fillStyle(0x2b6835).fillCircle(xx+16,yy+16,23);
     }
    }
   }
   // Twarde granice biomów poza szerokimi bramami w pobliżu drogi.
-  for(let yy=oy;yy<oy+CHUNK;yy+=24)for(let xx=ox;xx<ox+CHUNK;xx+=24){
-   if(this.regionBoundaryAt(xx+12,yy+12,12)){
-    const kind=this.biomeAt(xx+12,yy+12);
+  for(let yy=oy;yy<oy+CHUNK;yy+=48)for(let xx=ox;xx<ox+CHUNK;xx+=48){
+   if(this.regionBoundaryAt(xx+24,yy+24,24)){
+    const kind=this.biomeAt(xx+24,yy+24);
     const color=kind==='swamp'?0x315f77:kind==='forest'||kind==='thicket'?0x234b2c:0x555b4b;
-    g.fillStyle(color,.95).fillRect(xx,yy,25,25);
-    if(kind==='forest'||kind==='thicket')g.fillStyle(0x367342).fillCircle(xx+12,yy+12,14);
+    g.fillStyle(color,.95).fillRect(xx,yy,49,49);
+    if(kind==='forest'||kind==='thicket')g.fillStyle(0x367342).fillCircle(xx+24,yy+24,24);
    }
   }
   // Szlak jest rysowany nad wodą i lasem: w przecięciach powstają mosty i przesmyki.
