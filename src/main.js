@@ -1,4 +1,4 @@
-// Number Survivors 0.9.5 — domknięcie granicy nad startem
+// Number Survivors 0.9.6 — animacje bohatera, slime'ów i walki
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -261,6 +261,7 @@ class Meadow extends Phaser.Scene{
    hero.setVisible(false);
    this.heroSprite=this.add.image(0,-7,'rogue_archer').setDisplaySize(76,76);
    this.player.add(this.heroSprite);
+   this.heroSprite.setOrigin(.5,.62);
   }
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
@@ -1219,6 +1220,8 @@ class Meadow extends Phaser.Scene{
   }
   const view=this.add.container(x,y,[...parts,...(sprite?[sprite]:[]),label]).setDepth(7);
   const enemy={n,x,y,size,view,label,body,sprite,boss:!!options.boss,swarm:!!options.swarm,hitPoints:options.hitPoints||0,armor:options.boss?10:0,baseColor:color,bornMinute:Math.floor((this.clock-this.startTime)/60000)};
+  enemy.animPhase=hash(Math.floor(x),Math.floor(y),418)*Math.PI*2;
+  enemy.hitUntil=0;
   this.enemies.push(enemy);
   return enemy;
  }
@@ -1328,13 +1331,22 @@ class Meadow extends Phaser.Scene{
   }
  }
 
+ spawnHitSpark(x,y){
+  // Jeden krótki błysk na trafienie, bez systemu cząsteczek aktualizowanego co klatkę.
+  const flash=this.add.circle(x,y,7,0xffe4a0,.85).setDepth(11);
+  this.tweens.add({targets:flash,scale:2.2,alpha:0,duration:165,ease:'Quad.Out',onComplete:()=>flash.destroy()});
+ }
  shoot(target,prime,now){
   const dx=target.x-this.player.x,dy=target.y-this.player.y,dist=Math.hypot(dx,dy)||1;
   const line=this.add.line(0,0,this.player.x,this.player.y,this.player.x+dx/dist*18,this.player.y+dy/dist*18,0x4d3423).setOrigin(0).setLineWidth(2).setDepth(9);
   this.arrows.push({line,from:now,originX:this.player.x,originY:this.player.y,target,prime});
+  this.heroShootUntil=now+180;
+  this.heroAimX=dx/dist;
  }
  hit(enemy,prime){
   if(!this.enemies.includes(enemy)||enemy.n%prime!==0)return;
+  enemy.hitUntil=this.clock+180;
+  this.spawnHitSpark(enemy.x,enemy.y);
   if(enemy.boss){
    enemy.armor--;
    if(this.special?.active&&this.special.kind==='boss'){
@@ -1358,6 +1370,11 @@ class Meadow extends Phaser.Scene{
    if(Math.random()<.005)this.spawnDrop('magnet',enemy.x-22,enemy.y);
    if(enemy.boss){this.spawnDrop('potion',enemy.x+40,enemy.y);this.spawnDrop('magnet',enemy.x-40,enemy.y);}
    if(enemy.swarm&&this.special?.kind==='swarm'&&this.special.active){this.special.remaining--;this.updateEventBar();}
+   if(enemy.sprite){
+    const ghost=this.add.image(enemy.x,enemy.y-enemy.size*.3,enemy.sprite.texture.key)
+     .setDisplaySize(enemy.size*2.8,enemy.size*2.8).setDepth(8).setAlpha(.85);
+    this.tweens.add({targets:ghost,alpha:0,scaleX:.3,scaleY:.3,y:ghost.y-18,duration:240,ease:'Quad.Out',onComplete:()=>ghost.destroy()});
+   }
    enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);
   }
  }
@@ -1401,7 +1418,16 @@ class Meadow extends Phaser.Scene{
   const dash=(this.isPressed('space')||this.touchDash)&&now-this.lastDash>4000;
   if(dash){this.lastDash=now;this.dashUntil=now+220;this.invulnUntil=now+220;this.dashDirection.copy(this.lastMove);}
   const dashing=now<this.dashUntil;
-  if(this.heroSprite){this.heroSprite.setFlipX(dx<-.15);this.heroSprite.y=-7+(len?Math.sin(now*.018)*1.5:0);}
+  if(this.heroSprite){
+   const firing=now<(this.heroShootUntil||0);
+   const facing=firing?this.heroAimX:len?dx:this.lastMove.x;
+   this.heroSprite.setFlipX(facing<-.15);
+   const stride=Math.sin(now*.021),moving=len>.1||dashing;
+   this.heroSprite.y=-7+(moving?Math.abs(stride)*2.5:Math.sin(now*.002)*.6)-(firing?2:0);
+   this.heroSprite.setAngle((moving?stride*2.3:Math.sin(now*.0018)*.6)+(firing?(facing<0?-6:6):0));
+   this.heroSprite.setScale(firing?1.07:1,moving?1+Math.abs(stride)*.025:1);
+   if(dashing)this.heroSprite.setAlpha(.82);else this.heroSprite.setAlpha(1);
+  }
   else if(this.heroVisual){this.heroVisual.setScale(dx<-.15?-1:1,1);this.heroBoots[0].y=10+(len?Math.sin(now*.018)*3:0);this.heroBoots[1].y=10-(len?Math.sin(now*.018)*3:0);}
   const mx=dashing?this.dashDirection.x:dx,my=dashing?this.dashDirection.y:dy;
   const speed=dashing?780:220*this.moveMultiplier;
@@ -1432,6 +1458,15 @@ class Meadow extends Phaser.Scene{
    // Przeciwnik ściga gracza niezależnie od odległości i rozmiaru okna.
    const enemySpeed=enemy.boss?38:55;
    this.steerEnemy(enemy,dt,enemySpeed);enemy.view.setPosition(enemy.x,enemy.y);
+   if(enemy.sprite){
+    const phase=now*.006+enemy.animPhase;
+    const bounce=Math.abs(Math.sin(phase));
+    enemy.sprite.y=-enemy.size*.3-bounce*3.2;
+    enemy.sprite.setScale(1+.035*Math.sin(phase),1-.045*bounce);
+    enemy.sprite.setAngle(Math.sin(phase*.65)*2.5);
+    if(now<enemy.hitUntil)enemy.sprite.setTint(0xffd1d1);
+    else enemy.sprite.clearTint();
+   }
    if(distance<enemy.size+12&&now-this.lastDamage>850&&now>this.invulnUntil){this.health-=enemy.boss?2:1;this.lastDamage=now;}
   }
   if(profiling)enemyMs=performance.now()-enemyStart;
