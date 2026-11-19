@@ -1,4 +1,4 @@
-// Number Survivors 0.6.1 — naturalne oczka wodne i trzciny na mokradłach
+// Number Survivors 0.6.2 — bagienna paleta i zaokrąglone drogi
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -11,7 +11,7 @@ const REGIONS=[
  {id:4,name:'Gęsty las',x:5800,y:5700,color:[49,99,55],kind:'forest'},
  {id:3,name:'Zarośla',x:9900,y:5150,color:[75,141,66],kind:'thicket'},
  {id:1,name:'Łąka',x:5850,y:9750,color:[130,189,71],kind:'meadow'},
- {id:2,name:'Mokradła',x:9950,y:9800,color:[76,134,140],kind:'swamp'}
+ {id:2,name:'Mokradła',x:9950,y:9800,color:[94,111,65],kind:'swamp'}
 ];
 const REGION_SEED=48371; // Stały świat — powtarzalny układ do testowania
 // Kolejność punktów: łąka → mokradła → zarośla → las → równiny → pustkowia → zamek.
@@ -466,7 +466,7 @@ class Meadow extends Phaser.Scene{
    const x=ox+ix*64,y=oy+iy*64;
    const noise=(hash(cx*10+ix,cy*10+iy,2)-.5)*.24;
    const b=biomeWeights(x+32,y+32);
-   const rgb={r:Math.round(130*b.meadow+76*b.swamp+82*b.thicket+48*b.forest+168*b.plains+147*b.badlands+111*b.castle+55*b.dungeon),g:Math.round(189*b.meadow+134*b.swamp+141*b.thicket+99*b.forest+125*b.plains+69*b.badlands+113*b.castle+56*b.dungeon),b:Math.round(71*b.meadow+140*b.swamp+66*b.thicket+55*b.forest+82*b.plains+59*b.badlands+119*b.castle+69*b.dungeon)};
+   const rgb={r:Math.round(130*b.meadow+94*b.swamp+82*b.thicket+48*b.forest+168*b.plains+147*b.badlands+111*b.castle+55*b.dungeon),g:Math.round(189*b.meadow+111*b.swamp+141*b.thicket+99*b.forest+125*b.plains+69*b.badlands+113*b.castle+56*b.dungeon),b:Math.round(71*b.meadow+65*b.swamp+66*b.thicket+55*b.forest+82*b.plains+59*b.badlands+119*b.castle+69*b.dungeon)};
    const n=noise*26;rgb.r=clamp(rgb.r+n,0,255);rgb.g=clamp(rgb.g+n,0,255);rgb.b=clamp(rgb.b+n,0,255);
    const color=Phaser.Display.Color.GetColor(rgb.r,rgb.g,rgb.b);
    g.fillStyle(color,1).fillRect(x,y,65,65);
@@ -535,21 +535,29 @@ class Meadow extends Phaser.Scene{
     if(kind==='forest'||kind==='thicket')g.fillStyle(0x367342).fillCircle(xx+24,yy+24,24);
    }
   }
-  // Szlak jest rysowany nad wodą i lasem: w przecięciach powstają mosty i przesmyki.
-  g.lineStyle(120,0x594a36,.88);g.beginPath();
-  for(let i=0;i<ROAD.length-1;i++){
-   const a=ROAD[i],b=ROAD[i+1];
-   if(Math.max(a.x,b.x)<ox-130||Math.min(a.x,b.x)>ox+CHUNK+130||Math.max(a.y,b.y)<oy-130||Math.min(a.y,b.y)>oy+CHUNK+130)continue;
-   g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);
+  // Rysunkowa droga: oddzielne odcinki i okrągłe zakończenia eliminują
+  // ostre trójkąty na zakrętach. Trasa i jej szerokość pozostają bez zmian.
+  const roadVisible=(a,b)=>!(Math.max(a.x,b.x)<ox-135||Math.min(a.x,b.x)>ox+CHUNK+135||Math.max(a.y,b.y)<oy-135||Math.min(a.y,b.y)>oy+CHUNK+135);
+  for(const [width,color,alpha] of [[120,0x5c4b32,.92],[104,0xb89a69,1]]){
+   g.lineStyle(width,color,alpha);
+   for(let i=0;i<ROAD.length-1;i++){
+    const a=ROAD[i],b=ROAD[i+1];
+    if(roadVisible(a,b))g.lineBetween(a.x,a.y,b.x,b.y);
+   }
+   g.fillStyle(color,alpha);
+   for(const p of ROAD){
+    if(p.x>=ox-width&&p.x<=ox+CHUNK+width&&p.y>=oy-width&&p.y<=oy+CHUNK+width)g.fillCircle(p.x,p.y,width/2);
+   }
   }
-  g.strokePath();
-  g.lineStyle(104,0xb79a66,.95);g.beginPath();
-  for(let i=0;i<ROAD.length-1;i++){
-   const a=ROAD[i],b=ROAD[i+1];
-   if(Math.max(a.x,b.x)<ox-130||Math.min(a.x,b.x)>ox+CHUNK+130||Math.max(a.y,b.y)<oy-130||Math.min(a.y,b.y)>oy+CHUNK+130)continue;
-   g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);
+  // Subtelne drobinki ziemi i kamyczki na poboczach, bez zmian kolizji.
+  for(let i=0;i<18;i++){
+   const x=ox+hash(cx,cy,2300+i*3)*CHUNK,y=oy+hash(cx,cy,2301+i*3)*CHUNK;
+   const d=roadNearest(x,y).distance;
+   if(d>28&&d<49){
+    const size=2+hash(cx,cy,2302+i*3)*4;
+    g.fillStyle(0xd0b481,.55).fillEllipse(x,y,size*2,size);
+   }
   }
-  g.strokePath();
   // Nieprzebyty pas lasu wokół zamku; jedynie zachodnia brama pozostaje otwarta.
   for(let yy=oy;yy<oy+CHUNK;yy+=40)for(let xx=ox;xx<ox+CHUNK;xx+=40){
    const x=xx+20,y=yy+20;
