@@ -1,4 +1,4 @@
-// Number Survivors 0.5.1 — optymalizacja kolizji i renderowania biomów
+// Number Survivors 0.5.2 — rasteryzacja chunków terenu i redukcja geometrii
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -379,11 +379,18 @@ class Meadow extends Phaser.Scene{
    const key=cx+','+cy;visible.add(key);
    if(!this.terrainChunks.has(key))this.buildChunk(cx,cy,key);
   }
-  for(const [key,g] of this.terrainChunks)if(!visible.has(key)){g.destroy();this.terrainChunks.delete(key);}
+  for(const [key,g] of this.terrainChunks)if(!visible.has(key)){
+   g.destroy();this.terrainChunks.delete(key);
+   const textureKey='terrain-'+key;
+   if(this.textures.exists(textureKey))this.textures.remove(textureKey);
+  }
  }
  buildChunk(cx,cy,key){
-  const g=this.add.graphics().setDepth(-10);
+  const g=this.make.graphics({x:0,y:0},false);
   const ox=cx*CHUNK,oy=cy*CHUNK;
+  // Generujemy jedną teksturę na chunk zamiast odtwarzać tysiące kół co klatkę.
+  // Przesunięcie poleceń rysowania z globalnych współrzędnych do lokalnych.
+  g.translateCanvas(-ox,-oy);
   // Małe pola o zmiennym nasyceniu tworzą łagodne, nieregularne przejście.
   for(let iy=0;iy<10;iy++)for(let ix=0;ix<10;ix++){
    const x=ox+ix*64,y=oy+iy*64;
@@ -496,7 +503,11 @@ class Meadow extends Phaser.Scene{
     g.fillStyle(0x316d35).fillCircle(o.x-9,o.y-18,o.radius*.7);
    }
   }
-  this.terrainChunks.set(key,g);
+  const textureKey='terrain-'+key;
+  g.generateTexture(textureKey,CHUNK,CHUNK);
+  g.destroy();
+  const image=this.add.image(ox,oy,textureKey).setOrigin(0).setDepth(-10);
+  this.terrainChunks.set(key,image);
  }
  slotCount(){return 1+Number(this.level>=10)+Number(this.level>=20)+Number(this.level>=30);}
  lockLimit(){return this.slotCount()-1;}
@@ -537,7 +548,7 @@ class Meadow extends Phaser.Scene{
   ctx.fillStyle='#383943';ctx.fillRect(DUNGEON.left/WORLD*w,DUNGEON.top/WORLD*h,(DUNGEON.right-DUNGEON.left)/WORLD*w,(DUNGEON.bottom-DUNGEON.top)/WORLD*h);
   ctx.strokeStyle='#c6c9d0';ctx.lineWidth=2;ctx.strokeRect(CASTLE.left/WORLD*w,CASTLE.top/WORLD*h,(CASTLE.right-CASTLE.left)/WORLD*w,(CASTLE.bottom-CASTLE.top)/WORLD*h);
   ctx.strokeStyle='#b7b9c6';for(const y of [1500,2300,3100]){ctx.beginPath();ctx.moveTo(DUNGEON.left/WORLD*w,y/WORLD*h);ctx.lineTo(DUNGEON.right/WORLD*w,y/WORLD*h);ctx.stroke();}
-  for(const x of [10850,11600,12200]){ctx.beginPath();ctx.moveTo(x/WORLD*w,DUNGEON.top/WORLD*h);ctx.lineTo(x/WORLD*w,DUNGEON.bottom/WORLD*h);ctx.stroke();}
+  for(const x of [8850,9600,10200]){ctx.beginPath();ctx.moveTo(x/WORLD*w,DUNGEON.top/WORLD*h);ctx.lineTo(x/WORLD*w,DUNGEON.bottom/WORLD*h);ctx.stroke();}
   // Na minimapie widać granice, a przerwy w nich wskazują szerokie przejścia.
   ctx.fillStyle='#182b24';
   for(let py=0;py<h;py+=2)for(let px=0;px<w;px+=2){
@@ -549,7 +560,7 @@ class Meadow extends Phaser.Scene{
   for(let i=1;i<ROAD.length;i++)ctx.lineTo(ROAD[i].x/WORLD*w,ROAD[i].y/WORLD*h);
   ctx.strokeStyle='#302719';ctx.lineWidth=4;ctx.stroke();ctx.strokeStyle='#f2d89b';ctx.lineWidth=2;ctx.stroke();
   ctx.font='bold 14px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
-  for(const region of [...REGIONS,{id:7,x:9200,y:2350},{id:8,x:11500,y:2350}]){const px=region.x/WORLD*w,py=region.y/WORLD*h;ctx.lineWidth=3;ctx.strokeStyle='#18251e';ctx.strokeText(String(region.id),px,py);ctx.fillStyle='#ffffff';ctx.fillText(String(region.id),px,py);}
+  for(const region of [...REGIONS,{id:7,x:7300,y:2350},{id:8,x:9450,y:2350}]){const px=region.x/WORLD*w,py=region.y/WORLD*h;ctx.lineWidth=3;ctx.strokeStyle='#18251e';ctx.strokeText(String(region.id),px,py);ctx.fillStyle='#ffffff';ctx.fillText(String(region.id),px,py);}
   const px=this.player.x/WORLD*w,py=this.player.y/WORLD*h;
   ctx.beginPath();ctx.arc(px,py,7,0,Math.PI*2);ctx.fillStyle='#ffe35b';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#151515';ctx.stroke();
  }
