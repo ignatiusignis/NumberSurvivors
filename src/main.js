@@ -16,7 +16,7 @@ const REGIONS=[
 const REGION_SEED=48371; // Stały świat — powtarzalny układ do testowania
 // Kolejność punktów: łąka → mokradła → zarośla → las → równiny → pustkowia → zamek.
 // Delikatne przesunięcia punktów zmieniają trasę przy każdej nowej rozgrywce.
-const ROAD_ANCHORS=[[5850,9750],[7100,10100],[8550,9850],[9800,10050],[10800,8900],[10400,7200],[9900,5300],[8350,5000],[6800,5500],[5700,5700],[4100,6100],[2300,5850],[2000,4300],[2500,2250],[4300,2900],[6100,3500],[7600,4000],[9300,4100],[9300,3650]];
+const ROAD_ANCHORS=[[5850,9750],[7100,10100],[8550,9850],[9800,10050],[10800,8900],[10400,7200],[9900,5300],[8350,5000],[6800,5500],[5700,5700],[4100,6100],[2300,5850],[2000,4300],[2500,2250],[4300,2900],[6100,3500],[7550,2800],[8150,2350],[8550,2350]];
 const ROAD=ROAD_ANCHORS.map(([x,y])=>({x,y}));
 const roadNearest=(x,y)=>{
  let best=Infinity,segment=0,t=0;
