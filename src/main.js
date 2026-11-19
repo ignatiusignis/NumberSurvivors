@@ -1,4 +1,4 @@
-// Number Survivors 0.9.8 — szybszy start roju i bossów oraz więcej wrogów
+// Number Survivors 0.9.9 — wybór pięciu poziomów trudności
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -87,7 +87,7 @@ class Meadow extends Phaser.Scene{
   this.menuOptions=document.getElementById('menu-options-panel');
   this.menuBack=document.getElementById('menu-back');
   const openMenuPanel=which=>{
-   this.menuHelp.hidden=which!=='help';this.menuOptions.hidden=which!=='options';
+   this.menuHelp.hidden=which!=='help';this.menuOptions.hidden=which!=='options';document.getElementById('menu-difficulty-panel').hidden=which!=='difficulty';
    document.querySelector('.menu-buttons').hidden=!!which;
    this.menuBack.hidden=!which;
    const optionsPanel=document.getElementById('options-panel');
@@ -98,8 +98,13 @@ class Meadow extends Phaser.Scene{
   document.getElementById('menu-options').addEventListener('click',()=>openMenuPanel('options'));
   this.menuBack.addEventListener('click',()=>openMenuPanel(null));
   document.getElementById('menu-new').addEventListener('click',()=>{
+   openMenuPanel('difficulty');
+  });
+  document.getElementById('difficulty-start').addEventListener('click',()=>{
+   const choice=document.getElementById('difficulty-select').value;
+   if(this.menuNeedsRestart){sessionStorage.setItem('ns-start-immediately','1');sessionStorage.setItem('ns-difficulty',choice);location.reload();return;}
+   this.applyDifficulty(choice);
    openMenuPanel(null);
-   if(this.menuNeedsRestart){sessionStorage.setItem('ns-start-immediately','1');location.reload();return;}
    this.menuOpen=false;this.menu.hidden=true;this.time.paused=false;
    this.physicalKeys.clear();
    if(this.controlMode==='keyboard')this.activateKeyboard();
@@ -117,7 +122,7 @@ class Meadow extends Phaser.Scene{
   this.controlSelect.addEventListener('change',syncMenuControl);
   syncMenuControl();
   if(sessionStorage.getItem('ns-start-immediately')==='1'){
-   sessionStorage.removeItem('ns-start-immediately');this.menuOpen=false;this.menu.hidden=true;
+   sessionStorage.removeItem('ns-start-immediately');this.applyDifficulty(sessionStorage.getItem('ns-difficulty')||'veryeasy');sessionStorage.removeItem('ns-difficulty');this.menuOpen=false;this.menu.hidden=true;
   }
   this.time.paused=this.menuOpen;
 
@@ -212,6 +217,7 @@ class Meadow extends Phaser.Scene{
    this.updateTerrain();this.drawMinimap();
    document.getElementById('teleport-status').textContent='Przeniesiono w pobliże teczki. Wznów grę i podejdź do niej.';
   });
+  this.difficulty='veryeasy';this.hitsPerFactor=1;this.enemyMultiplier=1;
   this.player=this.add.container(420,11500).setDepth(10);
   this.collisionDebug=false;
   this.collisionGraphics=this.add.graphics().setDepth(85).setVisible(false);
@@ -1219,7 +1225,7 @@ class Meadow extends Phaser.Scene{
    label.setY(-size*1.95);
   }
   const view=this.add.container(x,y,[...parts,...(sprite?[sprite]:[]),label]).setDepth(7);
-  const enemy={n,x,y,size,view,label,body,sprite,boss:!!options.boss,swarm:!!options.swarm,hitPoints:options.hitPoints||0,armor:options.boss?10:0,baseColor:color,bornMinute:Math.floor((this.clock-this.startTime)/60000),bornAt:this.clock};
+  const enemy={n,x,y,size,view,label,body,sprite,boss:!!options.boss,swarm:!!options.swarm,hitPoints:options.hitPoints||0,armor:options.boss?10:0,baseColor:color,bornMinute:Math.floor((this.clock-this.startTime)/60000),bornAt:this.clock,factorHits:0};
   enemy.animPhase=hash(Math.floor(x),Math.floor(y),418)*Math.PI*2;
   enemy.hitUntil=0;
   this.enemies.push(enemy);
@@ -1236,6 +1242,12 @@ class Meadow extends Phaser.Scene{
   if(view.left-margin>=edge)zones.push(()=>({x:view.left-margin,y:rand(yMin,yMax)}));
   if(view.right+margin<=WORLD-edge)zones.push(()=>({x:view.right+margin,y:rand(yMin,yMax)}));
   return zones;
+ }
+ applyDifficulty(id){
+  const modes={veryeasy:[1,1],easy:[2,1],normal:[2,2],hard:[4,2],veryhard:[4,4]};
+  const mode=modes[id]||modes.veryeasy;
+  this.difficulty=modes[id]?id:'veryeasy';
+  this.hitsPerFactor=mode[0];this.enemyMultiplier=mode[1];
  }
  spawnWave(count){
   const zones=this.spawnZones();
@@ -1355,6 +1367,12 @@ class Meadow extends Phaser.Scene{
    if(enemy.armor>0){enemy.body.setFillStyle(0xf1a5b1);if(enemy.sprite)enemy.sprite.setTint(0xffaaaa);this.time.delayedCall(85,()=>{if(enemy.view.active){enemy.body.setFillStyle(enemy.baseColor);if(enemy.sprite)enemy.sprite.clearTint();}});return;}
    enemy.armor=10;
   }
+  enemy.factorHits=(enemy.factorHits||0)+1;
+  if(enemy.factorHits<this.hitsPerFactor){
+   enemy.label.setText(String(enemy.n)+'  '+enemy.factorHits+'/'+this.hitsPerFactor);
+   return;
+  }
+  enemy.factorHits=0;
   enemy.n/=prime;enemy.label.setText(String(enemy.n));enemy.body.setFillStyle(0xc9a5f0);if(enemy.sprite)enemy.sprite.setTint(0xe7baff);
   this.time.delayedCall(85,()=>{if(enemy.view.active)enemy.body.setFillStyle(enemy.baseColor)});
   if(enemy.n===1){
@@ -1448,8 +1466,8 @@ class Meadow extends Phaser.Scene{
   if(minute>=5&&minute<=25&&minute%5===0&&this.eventIndex<minute/5){this.eventIndex=minute/5;this.prepareEvent(minute);}
   if(this.special&&!this.special.active&&now>=this.warningUntil)this.beginEvent();
   const normalCount=this.enemies.filter(e=>!e.swarm&&!e.boss).length;
-  if(minute===0){if(now-this.lastSpawn>=10000&&normalCount<45){this.spawnWave(3);this.lastSpawn=now;}}
-  else if(now-this.lastSpawn>2500&&normalCount<Math.min(18+minute*3,68)){this.spawnWave(3);this.lastSpawn=now;}
+  if(minute===0){if(now-this.lastSpawn>=10000&&normalCount<45*this.enemyMultiplier){this.spawnWave(3*this.enemyMultiplier);this.lastSpawn=now;}}
+  else if(now-this.lastSpawn>2500&&normalCount<Math.min(18+minute*3,68)*this.enemyMultiplier){this.spawnWave(3*this.enemyMultiplier);this.lastSpawn=now;}
   const cam=this.cameras.main;const bound=cam.worldView;
   const enemyStart=profiling?performance.now():0;
   for(const enemy of [...this.enemies]){
