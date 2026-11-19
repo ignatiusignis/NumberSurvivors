@@ -1,4 +1,4 @@
-// Number Survivors 0.3.5 — kręty szlak, mosty i przejścia przez biomy
+// Number Survivors 0.4.0 — stałe regiony, przejścia i obsługa klawiatury iPad
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -13,11 +13,11 @@ const REGIONS=[
  {id:1,name:'Łąka',x:5850,y:9750,color:[130,189,71],kind:'meadow'},
  {id:2,name:'Mokradła',x:9950,y:9800,color:[76,134,140],kind:'swamp'}
 ];
-const REGION_SEED=Math.floor(Math.random()*1000000000);
+const REGION_SEED=48371; // Stały świat — powtarzalny układ do testowania
 // Kolejność punktów: łąka → mokradła → zarośla → las → równiny → pustkowia → zamek.
 // Delikatne przesunięcia punktów zmieniają trasę przy każdej nowej rozgrywce.
 const ROAD_ANCHORS=[[5850,9750],[7100,10100],[8550,9850],[9800,10050],[10800,8900],[10400,7200],[9900,5300],[8350,5000],[6800,5500],[5700,5700],[4100,6100],[2300,5850],[2000,4300],[2500,2250],[4300,2900],[6100,3500],[7600,4000],[9300,4100],[9300,3650]];
-const ROAD=ROAD_ANCHORS.map(([x,y],i)=>({x:x+(i===0||i>=17?0:(hash(i,7,REGION_SEED)-.5)*230),y:y+(i===0||i>=17?0:(hash(i,13,REGION_SEED)-.5)*230)}));
+const ROAD=ROAD_ANCHORS.map(([x,y])=>({x,y}));
 const roadNearest=(x,y)=>{
  let best=Infinity,segment=0,t=0;
  for(let i=0;i<ROAD.length-1;i++){
@@ -31,7 +31,7 @@ const roadNearest=(x,y)=>{
 const regionScores=(x,y)=>{
  const scores=REGIONS.map((r,i)=>{
   const dx=(x-r.x)/3900,dy=(y-r.y)/3600;
-  const noise=(hash(Math.floor(x/600),Math.floor(y/600),REGION_SEED+i*17)-.5)*.24;
+  const noise=(Math.sin(x/920+i*2.7)+Math.cos(y/840+i*1.8))*.035;
   return {region:r,score:dx*dx+dy*dy+noise};
  }).sort((a,b)=>a.score-b.score);
  return scores;
@@ -46,7 +46,7 @@ const biomeWeights=(x,y)=>{
  const weights={meadow:0,swamp:0,thicket:0,forest:0,plains:0,badlands:0,castle:0,dungeon:0};
  const special=regionAt(x,y);if(special.kind==='castle'||special.kind==='dungeon'){weights[special.kind]=1;return weights;}
  const a=scores[0],b=scores[1];
- const blend=clamp((b.score-a.score)/.22,0,1);
+ const blend=clamp((b.score-a.score)/.08,0,1);
  weights[a.region.kind]=.5+.5*blend;
  weights[b.region.kind]+=.5-.5*blend;
  return weights;
@@ -60,6 +60,24 @@ class Meadow extends Phaser.Scene{
  create(){
   this.cameras.main.setBackgroundColor('#79b65d');
   this.terrainChunks=new Map();this.obstacleChunks=new Map();
+  this.physicalKeys=new Set();
+  this.onPhysicalKeyDown=event=>{
+   const key=event.key.toLowerCase();
+   const code=event.code.toLowerCase();
+   const normalized=key==='arrowup'?'up':key==='arrowdown'?'down':key==='arrowleft'?'left':key==='arrowright'?'right':key===' '?'space':key;
+   if(['up','down','left','right','w','a','s','d','space','p','1','2','3','4','5','6','7','8'].includes(normalized)){
+    event.preventDefault();event.stopPropagation();this.physicalKeys.add(normalized);
+    if(!event.repeat)this.handleGameKey(normalized);
+   }
+  };
+  this.onPhysicalKeyUp=event=>{const key=event.key.toLowerCase();const normalized=key==='arrowup'?'up':key==='arrowdown'?'down':key==='arrowleft'?'left':key==='arrowright'?'right':key===' '?'space':key;this.physicalKeys.delete(normalized);};
+  this.onKeyboardBlur=()=>this.physicalKeys.clear();
+  window.addEventListener('keydown',this.onPhysicalKeyDown,true);
+  window.addEventListener('keyup',this.onPhysicalKeyUp,true);
+  window.addEventListener('blur',this.onKeyboardBlur);
+  const gameHost=document.getElementById('game');gameHost.tabIndex=0;
+  gameHost.addEventListener('pointerdown',()=>gameHost.focus({preventScroll:true}));
+  requestAnimationFrame(()=>gameHost.focus({preventScroll:true}));
   const minimap=document.getElementById('world-minimap');
   minimap.addEventListener('click',event=>this.teleportFromMap(event));
   this.player=this.add.container(5850,9750).setDepth(10);
@@ -90,15 +108,34 @@ class Meadow extends Phaser.Scene{
   this.dashBox=ui(this.add.rectangle(783,550,100,56,0x339b54).setStrokeStyle(2,0x91d6a3));
   this.dashLabel=txt(783,535,'SPACJA',16).setOrigin(.5,0);
   this.dashHint=txt(783,558,'UNIK',12).setOrigin(.5,0);
-  this.input.keyboard.on('keydown',e=>{if(e.repeat)return;if(e.key.toLowerCase()==='p'){if(!this.upgradeOpen)this.togglePause();return;}if(this.upgradeOpen){if(['1','2','3'].includes(e.key))this.chooseUpgrade(Number(e.key)-1);return;}if(this.manualPause)return;const i=Number(e.key)-1;if(i>=0&&i<8){const p=PRIMES[i];this.selectPrime(p);}});
+  this.input.keyboard.enabled=false; // Obsługa przez window capture, również w Safari na iPadzie.
   this.layoutHUD(this.scale.width,this.scale.height);
   this.scale.on('resize',this.onGameResize,this);
-  this.events.once('shutdown',()=>{this.input.keyboard.removeAllListeners('keydown');this.scale.off('resize',this.onGameResize,this);});
+  this.events.once('shutdown',()=>{window.removeEventListener('keydown',this.onPhysicalKeyDown,true);window.removeEventListener('keyup',this.onPhysicalKeyUp,true);window.removeEventListener('blur',this.onKeyboardBlur);this.scale.off('resize',this.onGameResize,this);});
   // Pierwsza fala dopiero po ustawieniu kamery w pierwszej klatce.
   this.lastSpawn=-1;
   this.updateTerrain();
  }
+ handleGameKey(key){
+  if(key==='p'){if(!this.upgradeOpen)this.togglePause();return;}
+  if(this.upgradeOpen){if(['1','2','3'].includes(key))this.chooseUpgrade(Number(key)-1);return;}
+  if(this.manualPause)return;
+  const i=Number(key)-1;if(i>=0&&i<8)this.selectPrime(PRIMES[i]);
+ }
+ isPressed(...keys){return keys.some(key=>this.physicalKeys.has(key));}
  biomeAt(x,y){return regionAt(x,y).kind;}
+ // Twarde granice poza szerokimi bramami na szlaku. Przejścia mają ~2 ekrany.
+ regionBoundaryAt(x,y,radius=0){
+  const current=regionAt(x,y);
+  if(current.kind==='castle'||current.kind==='dungeon')return false;
+  const nearRoad=roadNearest(x,y).distance<740+radius;
+  if(nearRoad)return false;
+  const offsets=[[radius+32,0],[-radius-32,0],[0,radius+32],[0,-radius-32]];
+  return offsets.some(([dx,dy])=>{
+   const other=regionAt(x+dx,y+dy);
+   return other.kind!=='castle'&&other.kind!=='dungeon'&&other.id!==current.id;
+  });
+ }
  inRect(x,y,r){return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;}
  dungeonOpen(x,y){
   // Szerokie skrzyżowania i korytarze w układzie kratowym.
@@ -183,7 +220,7 @@ class Meadow extends Phaser.Scene{
   return all;
  }
  blocked(x,y,radius){
-  if(x<radius||y<radius||x>WORLD-radius||y>WORLD-radius||this.barrierAt(x,y,radius)||this.structureBlocked(x,y,radius))return true;
+  if(x<radius||y<radius||x>WORLD-radius||y>WORLD-radius||this.barrierAt(x,y,radius)||this.structureBlocked(x,y,radius)||this.regionBoundaryAt(x,y,radius))return true;
   return this.nearbyObstacles(x,y).some(o=>Math.hypot(x-o.x,y-o.y)<o.radius+radius);
  }
  moveAround(entity,vx,vy,dt,speed,radius){
@@ -272,6 +309,15 @@ class Meadow extends Phaser.Scene{
    if(xx>4200&&xx<7900&&fy+165>=oy&&fy-165<=oy+CHUNK){
     g.fillStyle(0x1e4628).fillRect(xx,fy-165,33,330);
     for(let j=0;j<5;j++)g.fillStyle(j%2?0x275a30:0x356e35).fillCircle(xx+16,fy-145+j*70,29);
+   }
+  }
+  // Twarde granice biomów poza szerokimi bramami w pobliżu drogi.
+  for(let yy=oy;yy<oy+CHUNK;yy+=24)for(let xx=ox;xx<ox+CHUNK;xx+=24){
+   if(this.regionBoundaryAt(xx+12,yy+12,12)){
+    const kind=this.biomeAt(xx+12,yy+12);
+    const color=kind==='swamp'?0x315f77:kind==='forest'||kind==='thicket'?0x234b2c:0x555b4b;
+    g.fillStyle(color,.95).fillRect(xx,yy,25,25);
+    if(kind==='forest'||kind==='thicket')g.fillStyle(0x367342).fillCircle(xx+12,yy+12,14);
    }
   }
   // Szlak jest rysowany nad wodą i lasem: w przecięciach powstają mosty i przesmyki.
@@ -591,11 +637,11 @@ class Meadow extends Phaser.Scene{
   if(this.lastSpawn<0){this.spawnWave(2);this.lastSpawn=now;}
   if(this.health<=0){this.scene.pause();this.add.text(this.cameras.main.scrollX+400,this.cameras.main.scrollY+250,'KONIEC GRY',{font:'bold 52px Arial',color:'#fff'}).setOrigin(.5);return;}
   const dt=Math.min(delta,50)/1000;
-  let dx=Number(this.keys.D.isDown||this.keys.RIGHT.isDown)-Number(this.keys.A.isDown||this.keys.LEFT.isDown);
-  let dy=Number(this.keys.S.isDown||this.keys.DOWN.isDown)-Number(this.keys.W.isDown||this.keys.UP.isDown);
+  let dx=Number(this.isPressed('d','right'))-Number(this.isPressed('a','left'));
+  let dy=Number(this.isPressed('s','down'))-Number(this.isPressed('w','up'));
   const len=Math.hypot(dx,dy);
   if(len){dx/=len;dy/=len;this.lastMove.set(dx,dy);}
-  const dash=this.keys.SPACE.isDown&&now-this.lastDash>4000;
+  const dash=this.isPressed('space')&&now-this.lastDash>4000;
   if(dash){this.lastDash=now;this.dashUntil=now+220;this.invulnUntil=now+220;this.dashDirection.copy(this.lastMove);}
   const dashing=now<this.dashUntil;
   const mx=dashing?this.dashDirection.x:dx,my=dashing?this.dashDirection.y:dy;
