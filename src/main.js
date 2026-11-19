@@ -1,4 +1,4 @@
-// Number Survivors 0.9.11 — ulepszenia łucznika, przerzucenia i mikstury +1 HP
+// Number Survivors 0.9.12 — wybór postaci i prototypy klas
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -102,8 +102,10 @@ class Meadow extends Phaser.Scene{
   });
   document.getElementById('difficulty-start').addEventListener('click',()=>{
    const choice=document.getElementById('difficulty-select').value;
-   if(this.menuNeedsRestart){sessionStorage.setItem('ns-start-immediately','1');sessionStorage.setItem('ns-difficulty',choice);location.reload();return;}
+   const character=document.querySelector('input[name="character-class"]:checked')?.value||'archer';
+   if(this.menuNeedsRestart){sessionStorage.setItem('ns-start-immediately','1');sessionStorage.setItem('ns-difficulty',choice);sessionStorage.setItem('ns-character',character);location.reload();return;}
    this.applyDifficulty(choice);
+   this.applyCharacter(character);
    openMenuPanel(null);
    this.menuOpen=false;this.menu.hidden=true;this.time.paused=false;
    this.physicalKeys.clear();
@@ -122,7 +124,7 @@ class Meadow extends Phaser.Scene{
   this.controlSelect.addEventListener('change',syncMenuControl);
   syncMenuControl();
   if(sessionStorage.getItem('ns-start-immediately')==='1'){
-   sessionStorage.removeItem('ns-start-immediately');this.applyDifficulty(sessionStorage.getItem('ns-difficulty')||'veryeasy');sessionStorage.removeItem('ns-difficulty');this.menuOpen=false;this.menu.hidden=true;
+   sessionStorage.removeItem('ns-start-immediately');this.applyDifficulty(sessionStorage.getItem('ns-difficulty')||'veryeasy');sessionStorage.removeItem('ns-difficulty');this.applyCharacter(sessionStorage.getItem('ns-character')||'archer');sessionStorage.removeItem('ns-character');this.menuOpen=false;this.menu.hidden=true;
   }
   this.time.paused=this.menuOpen;
 
@@ -217,7 +219,7 @@ class Meadow extends Phaser.Scene{
    this.updateTerrain();this.drawMinimap();
    document.getElementById('teleport-status').textContent='Przeniesiono w pobliże teczki. Wznów grę i podejdź do niej.';
   });
-  this.difficulty='veryeasy';this.hitsPerFactor=1;this.enemyMultiplier=1;
+  this.difficulty='veryeasy';this.hitsPerFactor=1;this.enemyMultiplier=1;this.characterClass='archer';
   this.player=this.add.container(420,11500).setDepth(10);
   this.collisionDebug=false;
   this.collisionGraphics=this.add.graphics().setDepth(85).setVisible(false);
@@ -269,6 +271,9 @@ class Meadow extends Phaser.Scene{
    this.player.add(this.heroSprite);
    this.heroSprite.setOrigin(.5,.62);
   }
+  this.classVisual=this.add.container(0,0).setVisible(false);this.player.add(this.classVisual);
+  this.laserVisual=this.add.graphics().setDepth(9);this.meleeVisual=this.add.graphics().setDepth(9);
+  this.classFacing=new Phaser.Math.Vector2(1,0);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
   this.highestRegion=1;this.teleportTesting=false;
@@ -1434,6 +1439,7 @@ class Meadow extends Phaser.Scene{
   let dy=Number(this.isPressed('s','down'))-Number(this.isPressed('w','up'))+(this.controlMode==='touch'?this.touchVector.y:0);
   const len=Math.hypot(dx,dy);
   if(len){dx/=len;dy/=len;this.lastMove.set(dx,dy);}
+  if(len)this.classFacing.set(dx,dy);
   const dash=(this.isPressed('space')||this.touchDash)&&now-this.lastDash>4000*(1-this.dashCooldownLevel*.05);
   if(dash){this.lastDash=now;this.dashUntil=now+220;this.invulnUntil=now+220;this.dashDirection.copy(this.lastMove);}
   const dashing=now<this.dashUntil;
@@ -1489,8 +1495,20 @@ class Meadow extends Phaser.Scene{
    if(distance<enemy.size+12&&now-this.lastDamage>850&&now>this.invulnUntil){if(Math.random()>=this.attackDodgeLevel*.01)this.health-=enemy.boss?2:1;this.lastDamage=now;}
   }
   if(profiling)enemyMs=performance.now()-enemyStart;
+  this.laserVisual.clear();this.meleeVisual.clear();
   for(const p of this.active){
+   if(this.characterClass==='engineer'){
+    const targets=this.enemies.filter(e=>e.n%p===0&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<=450).sort((a,b)=>Math.hypot(a.x-this.player.x,a.y-this.player.y)-Math.hypot(b.x-this.player.x,b.y-this.player.y));
+    const target=targets[0];if(target){const vx=target.x-this.player.x,vy=target.y-this.player.y,d=Math.hypot(vx,vy)||1,ux=vx/d,uy=vy/d;this.classFacing.set(ux,uy);this.laserVisual.lineStyle(7,0x53e8f9,.8).lineBetween(this.player.x,this.player.y,this.player.x+ux*450,this.player.y+uy*450);this.laserVisual.lineStyle(2,0xffffff,1).lineBetween(this.player.x,this.player.y,this.player.x+ux*450,this.player.y+uy*450);if(now-(this.lastAttack.get(p)||0)>=650/this.attackRate){for(const e of [...this.enemies]){const ex=e.x-this.player.x,ey=e.y-this.player.y,along=ex*ux+ey*uy,side=Math.abs(ex*uy-ey*ux);if(along>=0&&along<=450&&side<=4+e.size*.4)this.hit(e,p);}this.lastAttack.set(p,now);}}continue;
+   }
    if(now-(this.lastAttack.get(p)||0)<650/this.attackRate)continue;
+   if(this.characterClass==='warrior'){
+    const targets=this.enemies.filter(e=>e.n%p===0&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<95);
+    if(targets.length){const t=targets[0],d=Math.hypot(t.x-this.player.x,t.y-this.player.y)||1;this.classFacing.set((t.x-this.player.x)/d,(t.y-this.player.y)/d);}
+    const angle=Math.atan2(this.classFacing.y,this.classFacing.x),half=Math.PI/18,range=90;
+    this.meleeVisual.fillStyle(0xffdf9a,.3);this.meleeVisual.slice(this.player.x,this.player.y,range,angle-half,angle+half,false).fillPath();
+    for(const e of [...this.enemies]){const ex=e.x-this.player.x,ey=e.y-this.player.y,dist=Math.hypot(ex,ey)||1,diff=Math.atan2(Math.sin(Math.atan2(ey,ex)-angle),Math.cos(Math.atan2(ey,ex)-angle));if(dist<=range+e.size*.4&&Math.abs(diff)<=half&&e.n%p===0)this.hit(e,p);}this.lastAttack.set(p,now);continue;
+   }
    const targets=this.enemies.filter(e=>e.n%p===0&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<this.attackRange).sort((a,b)=>Phaser.Math.Distance.Between(a.x,a.y,this.player.x,this.player.y)-Phaser.Math.Distance.Between(b.x,b.y,this.player.x,this.player.y));
    if(targets.length){for(const target of targets.slice(0,this.multishot))this.shoot(target,p,now);this.lastAttack.set(p,now);}
   }
@@ -1550,11 +1568,11 @@ class Meadow extends Phaser.Scene{
    {id:'dashCooldown',title:'Odnowienie uniku (spacja)',level:this.dashCooldownLevel,max:5,effect:'−5% czasu odnowienia'},
    {id:'knockback',title:'Powalający strzał',level:this.knockbackLevel,max:10,effect:'+1% szansy na zatrzymanie zwykłego wroga na 1 s'},
    {id:'attackDodge',title:'Uniknięcie ataku',level:this.attackDodgeLevel,max:10,effect:'+1% szansy na uniknięcie obrażeń'}
-  ];
+  ].filter(u=>this.characterClass==='archer'||['movement','pickup','health','potion'].includes(u.id));
  }
  statsMarkup(){
   const levels=this.upgradeLevels();
-  const rank=id=>{const u=levels.find(v=>v.id===id);return u.level+'/'+u.max;};
+  const rank=id=>{const u=levels.find(v=>v.id===id);return u?u.level+'/'+u.max:'—';};
   return [
    ['Poziom postaci',this.level],
    ['HP',this.health+' / '+this.maxHealth],
@@ -1594,6 +1612,12 @@ class Meadow extends Phaser.Scene{
   document.getElementById('end-symbol').textContent=won?'▣':'☠';
   document.getElementById('end-title').textContent=won?'Gratulacje!':'Umarłeś!';
   document.getElementById('end-message').textContent=won?'Znalazłeś teczkę z czerwonymi paskami!':'Nie udało się przetrwać. Spróbuj ponownie!';
+ }
+ applyCharacter(character){
+  this.characterClass=['archer','warrior','engineer'].includes(character)?character:'archer';
+  const archer=this.characterClass==='archer';if(this.heroVisual)this.heroVisual.setVisible(false);if(this.heroSprite)this.heroSprite.setVisible(archer);
+  this.classVisual.removeAll(true);this.classVisual.setVisible(!archer);
+  if(!archer){const warrior=this.characterClass==='warrior';this.classVisual.add([this.add.ellipse(0,13,34,12,0x14271d,.45),this.add.rectangle(0,1,warrior?30:27,30,warrior?0x9d7770:0x608f9c).setStrokeStyle(3,warrior?0x593d39:0x2c5a68),this.add.circle(0,-17,12,0xf1c89d),this.add.rectangle(0,-27,warrior?27:24,9,warrior?0x7a4140:0x3a667c),this.add.rectangle(warrior?20:17,-2,warrior?10:12,warrior?35:18,warrior?0xcbd4d6:0x52e4ef)]);}
  }
  togglePause(){
   if(this.menuOpen)return;
