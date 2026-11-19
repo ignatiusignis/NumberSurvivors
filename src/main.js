@@ -1,4 +1,4 @@
-// Number Survivors 0.6.4 — miękkie granice biomów, naturalna rzeka i drogi
+// Number Survivors 0.6.5 — poprawa rzeki i przejść kolorów na drodze
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -500,24 +500,26 @@ class Meadow extends Phaser.Scene{
    this.drawMeadowDecoration(g,x,y,variant,scale);
   }
   // Ciągłe bariery: rzeka z przejściem na północy oraz gęsty las z obejściem na południu.
-  // Rzeka: łagodne brzegi, jeden nieprzerwany pas zamiast schodków 32 px.
-  // Renderujemy także fragmenty sąsiednich chunków, aby uniknąć szwów.
-  const riverStart=Math.max(8100,oy-22),riverEnd=Math.min(11700,oy+CHUNK+22);
+  // Rzeka z ciągłych czworokątów: bez wielkich nakładających się kół.
+  // Wspólne krawędzie segmentów eliminują schodki i półokrągłe artefakty.
+  const riverStart=Math.max(8100,oy-20),riverEnd=Math.min(11700,oy+CHUNK+20);
   if(riverEnd>riverStart){
-   for(let yy=Math.floor(riverStart/12)*12;yy<riverEnd;yy+=12){
-    const y1=Math.max(8100,yy),y2=Math.min(11700,yy+12);
+   const riverBand=(y1,y2,half,color)=>{
+    const bend=y=>this.riverX(y)+5*Math.sin(y/91)+3*Math.sin(y/37);
+    const x1=bend(y1),x2=bend(y2);
+    if(Math.min(x1,x2)-half>ox+CHUNK||Math.max(x1,x2)+half<ox)return;
+    g.fillStyle(color,1).fillPoints([
+     {x:x1-half,y:y1},{x:x1+half,y:y1},
+     {x:x2+half,y:y2},{x:x2-half,y:y2}
+    ],true);
+   };
+   for(let yy=Math.floor(riverStart/8)*8;yy<riverEnd;yy+=8){
+    const y1=Math.max(8100,yy),y2=Math.min(11700,yy+8);
     if(y2<=y1)continue;
-    const mid=(y1+y2)/2,rx=this.riverX(mid);
-    if(rx+170<ox||rx-170>ox+CHUNK)continue;
-    const sway=5*Math.sin(mid/91)+3*Math.sin(mid/37);
-    const x1=this.riverX(y1)+sway,x2=this.riverX(y2)+sway;
-    for(const [half,color] of [[159,0x394f3b],[152,0x69866b],[144,0x3d8292]]){
-     g.lineStyle(half*2,color,1).lineBetween(x1,y1,x2,y2);
-     g.fillStyle(color,1).fillCircle(x1,y1,half);
-     g.fillCircle(x2,y2,half);
-    }
+    riverBand(y1,y2,159,0x394f3b);
+    riverBand(y1,y2,152,0x69866b);
+    riverBand(y1,y2,144,0x3d8292);
    }
-   // Ciche refleksy na wodzie; również wypalane w teksturze.
    for(let i=0;i<12;i++){
     const y=oy+hash(cx,cy,3800+i*2)*CHUNK;
     const x=this.riverX(y)+(hash(cx,cy,3801+i*2)-.5)*190;
@@ -583,8 +585,8 @@ class Meadow extends Phaser.Scene{
     default:return [0x655039,0xb99c70,0xd7ba89];
    }
   };
-  // Kolor drogi interpolowany na podstawie udziału biomów, nie skokowo
-  // według dominującego biomu. Dzięki temu nie powstają kolorowe półkola.
+  // Droga jako ciąg czworokątów bez kół. Kolory zmieniają się
+  // stopniowo wzdłuż szlaku, a nie w postaci wielkich półokręgów.
   const blendRoad=(x,y,index)=>{
    const w=biomeWeights(x,y);
    let red=0,green=0,blue=0,total=0;
@@ -596,13 +598,20 @@ class Meadow extends Phaser.Scene{
    return Phaser.Display.Color.GetColor(Math.round(red/total),Math.round(green/total),Math.round(blue/total));
   };
   for(const [width,paletteIndex] of [[124,0],[108,1]]){
+   const half=width/2;
    for(let i=1;i<path.length;i++){
     const p=path[i-1],q=path[i];
     if(Math.max(p.x,q.x)<ox-70||Math.min(p.x,q.x)>ox+CHUNK+70||Math.max(p.y,q.y)<oy-70||Math.min(p.y,q.y)>oy+CHUNK+70)continue;
+    const dx=q.x-p.x,dy=q.y-p.y,length=Math.hypot(dx,dy);
+    if(length<.001)continue;
+    const nx=-dy/length*half,ny=dx/length*half;
+    // Jeden piksel zakładki zapobiega mikroszczelinom na połączeniach.
+    const ex=dx/length,ey=dy/length;
     const color=blendRoad((p.x+q.x)/2,(p.y+q.y)/2,paletteIndex);
-    g.lineStyle(width,color,1).lineBetween(p.x,p.y,q.x,q.y);
-    g.fillStyle(color,1).fillCircle(q.x,q.y,width/2);
-    g.fillCircle(p.x,p.y,width/2);
+    g.fillStyle(color,1).fillPoints([
+     {x:p.x+nx-ex,y:p.y+ny-ey},{x:q.x+nx+ex,y:q.y+ny+ey},
+     {x:q.x-nx+ex,y:q.y-ny+ey},{x:p.x-nx-ex,y:p.y-ny-ey}
+    ],true);
    }
   }
   // Drobne plamki, kamyczki i ślady ziemi są wypalane w teksturze chunku.
