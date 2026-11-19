@@ -1,4 +1,4 @@
-// Number Survivors 0.6.0 — pierwsza odsłona grafiki cartoon: zielone łąki
+// Number Survivors 0.6.1 — naturalne oczka wodne i trzciny na mokradłach
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -386,6 +386,44 @@ class Meadow extends Phaser.Scene{
    if(this.textures.exists(textureKey))this.textures.remove(textureKey);
   }
  }
+ drawSwampPond(g,o){
+  // Nieregularna linia brzegowa jest wyłącznie wizualna; kolizja pozostaje kołowa.
+  const x=o.x,y=o.y,r=o.radius;
+  const shore=[],water=[],inner=[];
+  const count=18,seed=Math.floor(x/7)+Math.floor(y/11);
+  for(let i=0;i<count;i++){
+   const a=i*Math.PI*2/count;
+   const ripple=.87+hash(seed,i,29)*.25;
+   const rr=r*ripple;
+   shore.push(new Phaser.Math.Vector2(x+Math.cos(a)*(rr+11),y+Math.sin(a)*(rr*.78+9)));
+   water.push(new Phaser.Math.Vector2(x+Math.cos(a)*rr,y+Math.sin(a)*rr*.78));
+   inner.push(new Phaser.Math.Vector2(x+Math.cos(a)*rr*.76,y+Math.sin(a)*rr*.59));
+  }
+  g.fillStyle(0x2b5446,.75).fillPoints(shore,true);
+  g.fillStyle(0x4a9aa2,1).fillPoints(water,true);
+  g.fillStyle(0x367d8c,.85).fillPoints(inner,true);
+  g.lineStyle(2,0x9ac6a8,.75).strokePoints(water,true);
+  for(let k=0;k<3;k++){
+   const angle=hash(seed,k,71)*Math.PI*2;
+   const distance=r*(.17+hash(seed,k,72)*.38);
+   const px=x+Math.cos(angle)*distance,py=y+Math.sin(angle)*distance*.7;
+   g.lineStyle(1.7,0xb2d6c1,.48).lineBetween(px-10,py,px+8,py);
+  }
+  // Trzciny na obrzeżach — rosną poza środkiem oczka, nie zasłaniają całej wody.
+  for(let k=0;k<4;k++){
+   const a=hash(seed,k,83)*Math.PI*2;
+   const px=x+Math.cos(a)*(r+4),py=y+Math.sin(a)*(r*.79+5);
+   const scale=.8+hash(seed,k,84)*.45;
+   g.fillStyle(0x234e34,.22).fillEllipse(px,py+5,22*scale,7*scale);
+   for(let j=0;j<3;j++){
+    const sx=px+(j-1)*7*scale,sy=py+(j%2)*3;
+    const height=(23+hash(seed,k*3+j,86)*17)*scale;
+    const tipX=sx+(j-1)*4*scale;
+    g.lineStyle(2.5*scale,j===1?0x8bb45c:0x477c44,1).lineBetween(sx,sy,tipX,sy-height);
+    if(j!==2){g.fillStyle(0x67482b).fillRoundedRect(tipX-3*scale,sy-height-8*scale,6*scale,13*scale,3*scale);g.fillStyle(0x987143,.65).fillRect(tipX-1*scale,sy-height-6*scale,2*scale,8*scale);}
+   }
+  }
+ }
  drawMeadowDecoration(g,x,y,variant,scale=1){
   // Elementy rysunkowe: miękkie cienie, ciemny kontur, jasne akcenty.
   const s=scale;
@@ -533,10 +571,7 @@ class Meadow extends Phaser.Scene{
   }
   for(const o of this.obstaclesFor(cx,cy)){
    if(o.kind==='swamp'){
-    g.fillStyle(0x314f45,.8).fillEllipse(o.x+5,o.y+8,o.radius*2+20,o.radius*2+15);
-    g.fillStyle(0x3c7a88,1).fillEllipse(o.x,o.y,o.radius*2,o.radius*2);
-    g.lineStyle(3,0x89a899,.7).strokeEllipse(o.x,o.y,o.radius*2,o.radius*2);
-    if(o.shape==='channel'){g.fillStyle(0x3c7a88).fillRoundedRect(o.x-o.radius*.6,o.y-o.radius*.75,o.radius*1.2,o.radius*1.5,20);}
+    this.drawSwampPond(g,o);
    }else if(o.kind==='thicket'){
     g.fillStyle(0x294c29).fillCircle(o.x,o.y,o.radius+8);
     for(let j=0;j<6;j++)g.fillStyle(j%2?0x477d38:0x3c682d).fillCircle(o.x+Math.cos(j)*o.radius*.55,o.y+Math.sin(j)*o.radius*.55,o.radius*.58);
