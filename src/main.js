@@ -811,6 +811,33 @@ class Meadow extends Phaser.Scene{
    const north=y>CASTLE.top-120&&y<CASTLE.top+90&&x>CASTLE.left-170&&x<CASTLE.right+100;
    if(south||west||north){g.fillStyle(0x173c24).fillCircle(x,y,29);g.fillStyle(0x326c37).fillCircle(x-7,y-8,20);}
   }
+  // Zamkowe mury i baszty — wyłącznie wizualne, bramy pozostają otwarte.
+  // Nie rysujemy murów przez wejście zachodnie (y około 2350).
+  for(let y=CASTLE.top+80;y<CASTLE.bottom-40;y+=82){
+   if(Math.abs(y-2350)<280)continue;
+   const x=CASTLE.left+26;
+   if(x>=ox-50&&x<=ox+CHUNK+50&&y>=oy-50&&y<=oy+CHUNK+50){
+    g.fillStyle(0x42444b).fillRoundedRect(x-26,y-34,52,67,8);
+    g.fillStyle(0xa6a5a0).fillRoundedRect(x-24,y-37,48,52,7);
+    g.lineStyle(2,0x5b5a5c,.8).strokeRoundedRect(x-24,y-37,48,52,7);
+   }
+  }
+  for(const [x,y] of [[CASTLE.left+75,CASTLE.top+90],[CASTLE.left+75,CASTLE.bottom-90],[CASTLE.right-90,CASTLE.top+90],[CASTLE.right-90,CASTLE.bottom-90]]){
+   if(x<ox-100||x>ox+CHUNK+100||y<oy-100||y>oy+CHUNK+100)continue;
+   g.fillStyle(0x383943,.4).fillEllipse(x+13,y+19,120,48);
+   g.fillStyle(0x51525a).fillCircle(x,y,52);
+   g.fillStyle(0xa9a6a0).fillCircle(x-5,y-9,44);
+   g.fillStyle(0x75747b).fillCircle(x-5,y-9,29);
+   g.fillStyle(0x42444c).fillCircle(x-5,y-9,16);
+  }
+  // Pochodnie i proporce przy istniejących korytarzach lochów.
+  for(const [x,y] of [[8700,1500],[10150,1500],[8700,3000],[10150,3000]]){
+   if(x<ox-55||x>ox+CHUNK+55||y<oy-55||y>oy+CHUNK+55)continue;
+   g.fillStyle(0x24242b,.4).fillEllipse(x+9,y+18,42,18);
+   g.fillStyle(0x686873).fillRoundedRect(x-14,y-16,28,37,4);
+   g.fillStyle(0x9e4c43).fillPoints([{x:x-10,y:y-11},{x:x+10,y:y-11},{x:x+10,y:y+23},{x:x,y:y+14},{x:x-10,y:y+23}],true);
+   g.fillStyle(0xe8a65a).fillCircle(x,y-16,7);
+  }
   // Mury i korytarze są rysowane tym samym testem, który steruje kolizją.
   for(let yy=oy;yy<oy+CHUNK;yy+=32)for(let xx=ox;xx<ox+CHUNK;xx+=32){
    const kind=this.biomeAt(xx+16,yy+16);
