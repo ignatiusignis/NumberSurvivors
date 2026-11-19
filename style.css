@@ -189,3 +189,6 @@ body:not(.touch-mode) #touch-controls{display:none!important}
 /* Numer wersji w prawym górnym rogu pauzy. */
 .pause-modal{position:relative}
 .pause-version{position:absolute;top:10px;right:14px;color:#aab9a6;font:12px Arial,sans-serif;pointer-events:none}
+
+/* 0.5.4: czytelne pomiary wydajności na małych ekranach */
+#perf-panel{max-width:calc(100% - 12px);white-space:normal;text-align:center;line-height:1.35}
