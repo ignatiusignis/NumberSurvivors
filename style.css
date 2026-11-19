@@ -137,3 +137,45 @@ body:not(.touch-mode) #touch-controls{display:none!important}
  #touch-dash{left:8px;bottom:12px;width:85px;min-height:72px;font-size:17px!important}
  #touch-stick{left:110px;bottom:12px;width:112px;height:112px}
 }
+
+/* 0.5.0: pełny ekran gry, dwa niezależne interfejsy i opcje. */
+#keyboard-tools[hidden]{display:none!important}
+main{height:100dvh;max-height:none;overflow:hidden}
+header{display:none}
+.hint{display:none}
+#control-settings{flex:none;min-height:31px}
+#game{flex:1 1 0;min-height:0;max-height:none}
+#game>canvas{width:100%;height:100%}
+body.touch-mode #touch-controls{display:block!important}
+body:not(.touch-mode) #touch-controls{display:none!important}
+#touch-controls[hidden]{display:none!important}
+#touch-stick{left:clamp(12px,4vw,44px);bottom:clamp(14px,5vh,46px);width:clamp(112px,17vw,180px);height:clamp(112px,17vw,180px);opacity:var(--touch-opacity,.8)}
+#touch-pause{top:12px;right:16px;left:auto;bottom:auto;min-width:106px;min-height:48px;opacity:var(--touch-opacity,.8)}
+#touch-primes{position:absolute;top:72px;right:16px;left:auto;bottom:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-width:none;opacity:var(--touch-opacity,.8)}
+#touch-primes button{width:70px;min-width:70px;min-height:63px;font-size:23px!important;padding:7px}
+#touch-dash{position:absolute;bottom:18px;right:16px;left:auto;width:151px;min-height:94px;opacity:var(--touch-opacity,.8)}
+#touch-controls[data-size="small"] #touch-primes,#touch-controls[data-size="small"] #touch-stick,#touch-controls[data-size="small"] #touch-dash{scale:.82}
+#touch-controls[data-size="large"] #touch-primes,#touch-controls[data-size="large"] #touch-stick,#touch-controls[data-size="large"] #touch-dash{scale:1.12}
+#touch-primes{transform-origin:top right}
+#touch-stick{transform-origin:bottom left}
+#touch-dash{transform-origin:bottom right}
+#pause-options,#options-close{border:1px solid #a8c59a;background:#315e3c;color:white;border-radius:7px;padding:9px 14px;font:bold 13px Arial}
+#options-panel[hidden]{display:none!important}
+#options-panel{display:grid;grid-template-columns:1fr;gap:9px;max-width:360px;margin:8px auto 14px;padding:12px;border:1px solid #78906c;border-radius:10px;background:#253d2c}
+#options-panel h3{margin:0;color:#f4d889}
+#options-panel label{font-size:13px}
+#options-panel input,#options-panel select{width:100%}
+@media(orientation:portrait){
+ #touch-stick{left:10px;bottom:15px;width:clamp(92px,27vw,145px);height:clamp(92px,27vw,145px)}
+ #touch-pause{top:10px;right:10px;min-width:80px;min-height:42px;font-size:13px!important}
+ #touch-primes{top:auto;bottom:130px;right:10px;gap:5px}
+ #touch-primes button{width:clamp(39px,12vw,57px);min-width:0;min-height:clamp(40px,12vw,54px);font-size:17px!important;padding:3px}
+ #touch-dash{right:10px;bottom:12px;width:clamp(90px,27vw,130px);min-height:82px}
+}
+@media(orientation:landscape) and (max-height:650px){
+ #touch-stick{width:clamp(88px,16vh,135px);height:clamp(88px,16vh,135px);bottom:10px}
+ #touch-primes{top:57px;right:9px;gap:4px}
+ #touch-primes button{width:clamp(40px,9vh,55px);min-width:0;min-height:clamp(34px,8vh,48px);font-size:17px!important}
+ #touch-dash{right:9px;bottom:9px;width:clamp(85px,21vw,120px);min-height:clamp(50px,13vh,75px);font-size:19px!important}
+ #touch-pause{top:5px;right:9px;min-height:38px}
+}
