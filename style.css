@@ -179,3 +179,9 @@ body:not(.touch-mode) #touch-controls{display:none!important}
  #touch-dash{right:9px;bottom:9px;width:clamp(85px,21vw,120px);min-height:clamp(50px,13vh,75px);font-size:19px!important}
  #touch-pause{top:5px;right:9px;min-height:38px}
 }
+
+/* 0.5.1: diagnostyka wydajności */
+#perf-panel[hidden]{display:none!important}
+#perf-panel{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:15;background:rgba(13,29,20,.86);border:1px solid #8bb98b;border-radius:6px;padding:5px 9px;color:#fff5bb;font:bold 12px Arial;pointer-events:none;white-space:nowrap}
+#options-panel .perf-option{display:flex;align-items:center;gap:9px}
+#options-panel .perf-option input{width:auto}
