@@ -192,3 +192,29 @@ body:not(.touch-mode) #touch-controls{display:none!important}
 
 /* 0.5.4: czytelne pomiary wydajności na małych ekranach */
 #perf-panel{max-width:calc(100% - 12px);white-space:normal;text-align:center;line-height:1.35}
+
+/* v0.8.0 — główne menu w stylu świata gry, responsywne dla tabletów i telefonów. */
+#main-menu[hidden],.menu-panel[hidden],.menu-buttons[hidden],.menu-back[hidden]{display:none!important}
+#main-menu{position:absolute;inset:0;z-index:30;display:grid;place-items:center;overflow:auto;padding:clamp(10px,3vh,28px);background:linear-gradient(115deg,rgba(12,30,21,.96),rgba(20,47,31,.90) 52%,rgba(24,38,31,.96)),radial-gradient(ellipse at 65% 30%,#66864a,#12271d)}
+#main-menu:before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.20;background:repeating-linear-gradient(135deg,transparent 0 65px,#8eae76 66px 68px,transparent 69px 140px)}
+.menu-scene{position:relative;width:min(530px,100%);max-height:100%;overflow:auto;text-align:center;padding:clamp(12px,3vw,28px);border:2px solid #8d9c73;border-radius:18px;background:linear-gradient(160deg,#203b2c,#14251d);box-shadow:0 15px 55px #0009, inset 0 0 0 4px #2b4a32}
+.menu-crest{color:#e7b95a;font-size:30px}
+#menu-title{font:bold clamp(29px,5vw,51px) Arial,sans-serif;letter-spacing:1px;line-height:1.06;color:#fff0ca;text-shadow:0 4px #111b17;margin:2px 0 8px}
+#menu-title span{display:block;color:#f4c45b}
+.menu-subtitle{color:#c8d6bb;margin:0 0 22px;font-size:clamp(12px,1.5vw,15px)}
+.menu-buttons{display:grid;gap:12px;max-width:360px;margin:0 auto}
+.menu-buttons button,.menu-back{cursor:pointer;border:2px solid #a3a9a0;border-bottom:5px solid #151d1b;border-radius:11px;background:linear-gradient(#646e68,#3a4942);color:#fff7e9;padding:15px;font:bold clamp(17px,2.2vw,23px) Arial;text-shadow:0 2px #19201c;touch-action:manipulation}
+.menu-buttons .menu-primary{background:linear-gradient(#4f9a51,#256a38);border-color:#b6dca2}
+.menu-buttons button:hover,.menu-buttons button:focus-visible,.menu-back:hover{filter:brightness(1.18);outline:2px solid #f1d38b}
+.menu-panel{margin:12px auto;max-width:450px;text-align:left;color:#f1f1e6;font-size:14px;line-height:1.48}
+.menu-panel h3{text-align:center;color:#f2d38a;font-size:23px;margin:0 0 12px}
+.menu-panel h4{color:#f2d38a;margin:12px 0 6px}
+.menu-panel p{font-size:14px;margin:0 0 12px}
+.menu-keys{display:grid;grid-template-columns:minmax(100px,1fr) 1.7fr;gap:6px 10px;font-size:13px}
+.menu-keys dt{font-weight:bold;color:#f2d38a}.menu-keys dd{margin:0}
+.menu-panel label{display:block;margin:8px 0;color:#e6d4a2}
+#menu-control-mode{width:100%;padding:9px;background:#233b2a;color:#fff;border:1px solid #9cbb91;border-radius:7px}
+#menu-options-slot #options-panel{max-width:none;margin:10px 0;padding:10px}
+.menu-back{font-size:15px;margin-top:12px;padding:10px 22px}
+#pause-menu{border:1px solid #a8c59a;background:#315e3c;color:white;border-radius:7px;padding:9px 14px;font:bold 13px Arial;cursor:pointer}
+@media(max-height:580px){.menu-scene{padding:10px 18px}.menu-crest{font-size:18px}.menu-subtitle{margin-bottom:10px}.menu-buttons{gap:7px}.menu-buttons button{padding:10px}.menu-panel p{margin-bottom:6px}}
