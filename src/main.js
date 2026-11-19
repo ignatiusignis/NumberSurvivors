@@ -1,4 +1,4 @@
-// Number Survivors 0.9.1 — prawdziwe sprite'y łotrzyka i slime'ów
+// Number Survivors 0.9.2 — poprawa krycia sprite'ów i widoczna granica biomów
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -65,6 +65,39 @@ class Meadow extends Phaser.Scene{
   for(const name of sprites)this.load.image(name,'assets/sprites/'+name+'.png');
  }
  create(){
+  // Naprawa niezamierzonych przezroczystych dziur w wyciętych ilustracjach.
+  // Wykonywana raz przy uruchomieniu; nie obciąża klatek rozgrywki.
+  for(const name of ['rogue_archer','slime_green','slime_bunny','slime_horned','slime_winged','slime_sword','slime_spear','slime_axe','slime_king']){
+   if(!this.textures.exists(name))continue;
+   try{
+    const src=this.textures.get(name).getSourceImage();
+    const w=src.width,h=src.height;
+    const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+    const ctx=cv.getContext('2d',{willReadFrequently:true});ctx.drawImage(src,0,0);
+    const data=ctx.getImageData(0,0,w,h),p=data.data,seen=new Uint8Array(w*h);
+    const queue=new Int32Array(w*h);let head=0,tail=0;
+    const add=(i)=>{if(i<0||i>=w*h||seen[i]||p[i*4+3]>35)return;seen[i]=1;queue[tail++]=i;};
+    for(let x=0;x<w;x++){add(x);add((h-1)*w+x);}
+    for(let y=0;y<h;y++){add(y*w);add(y*w+w-1);}
+    while(head<tail){const i=queue[head++],x=i%w,y=(i/w)|0;
+     if(x>0)add(i-1);if(x<w-1)add(i+1);if(y>0)add(i-w);if(y<h-1)add(i+w);
+    }
+    // Uzupełnij tylko otwory zamknięte wewnątrz sylwetki, nie przezroczyste tło.
+    for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+     const i=y*w+x,k=i*4,a=p[k+3];
+     if(a>35){if(a>140&&a<255)p[k+3]=255;continue;}
+     if(seen[i])continue;
+     let found=false;
+     for(let r=1;r<=12&&!found;r++)for(const [dx,dy] of [[-r,0],[r,0],[0,-r],[0,r],[-r,-r],[r,r]]){
+      const xx=x+dx,yy=y+dy;if(xx<0||yy<0||xx>=w||yy>=h)continue;
+      const j=(yy*w+xx)*4;if(p[j+3]>210){p[k]=p[j];p[k+1]=p[j+1];p[k+2]=p[j+2];p[k+3]=255;found=true;break;}
+     }
+    }
+    ctx.putImageData(data,0,0);
+    this.textures.remove(name);
+    this.textures.addCanvas(name,cv);
+   }catch(error){console.warn('Sprite alpha repair skipped:',name,error);}
+  }
   this.cameras.main.setBackgroundColor('#79b65d');
   this.terrainChunks=new Map();this.obstacleChunks=new Map();
   this.physicalKeys=new Set();
@@ -246,7 +279,7 @@ class Meadow extends Phaser.Scene{
   this.player.add(hero);this.heroVisual=hero;this.heroBoots=boots;
   if(this.textures.exists('rogue_archer')){
    hero.setVisible(false);
-   this.heroSprite=this.add.image(0,-7,'rogue_archer').setDisplaySize(67,67);
+   this.heroSprite=this.add.image(0,-7,'rogue_archer').setDisplaySize(76,76);
    this.player.add(this.heroSprite);
   }
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
@@ -736,6 +769,32 @@ class Meadow extends Phaser.Scene{
    const scale=.75+hash(cx,cy,5103+i*4)*.65;
    this.drawDryGround(g,x,y,kind,v,scale);
   }
+  // Widoczna granica między biomami, również nad miejscem startowym.
+  // Odpowiada dokładnie regionBoundaryAt: tylko tam, gdzie kolizja blokuje ruch.
+  // Mała liczba elementów na fragment mapy, bez nowych obiektów Phaser.
+  const borderStep=52;
+  for(let yy=Math.floor(oy/borderStep)*borderStep;yy<=oy+CHUNK+borderStep;yy+=borderStep){
+   for(let xx=Math.floor(ox/borderStep)*borderStep;xx<=ox+CHUNK+borderStep;xx+=borderStep){
+    if(xx<ox-40||xx>ox+CHUNK+40||yy<oy-40||yy>oy+CHUNK+40)continue;
+    if(!this.regionBoundaryAt(xx,yy,10)||this.barrierAt(xx,yy,25))continue;
+    if(roadNearest(xx,yy).distance<760)continue;
+    const gx=Math.round(xx/borderStep),gy=Math.round(yy/borderStep);
+    const x=xx+(hash(gx,gy,332)-.5)*13,y=yy+(hash(gx,gy,333)-.5)*13;
+    const radius=19+hash(gx,gy,334)*13;
+    if(hash(gx,gy,335)>.77){
+     g.fillStyle(0x3a3d31,.25).fillEllipse(x+6,y+11,radius*1.9,radius*.65);
+     g.fillStyle(0x656b59).fillEllipse(x,y,radius*1.8,radius*1.05);
+     g.fillStyle(0x9b9d82).fillEllipse(x-4,y-5,radius*1.5,radius*.8);
+    }else{
+     g.fillStyle(0x143522,.42).fillEllipse(x+7,y+13,radius*2.2,radius*.7);
+     g.fillStyle(0x6a4a2f).fillRoundedRect(x-4,y-5,8,radius*.95,3);
+     for(const [dx,dy,s] of [[-12,-11,.75],[9,-15,.86],[0,-25,.95]]){
+      g.fillStyle(0x153c28).fillCircle(x+dx+3,y+dy+4,radius*s+3);
+      g.fillStyle(hash(gx+dx,gy+dy,337)>.5?0x316c38:0x427b3d).fillCircle(x+dx,y+dy,radius*s);
+     }
+    }
+   }
+  }
   // Ciągłe bariery: rzeka z przejściem na północy oraz gęsty las z obejściem na południu.
   // Rzeka z ciągłych czworokątów: bez wielkich nakładających się kół.
   // Wspólne krawędzie segmentów eliminują schodki i półokrągłe artefakty.
@@ -1154,7 +1213,7 @@ class Meadow extends Phaser.Scene{
   let sprite=null;
   if(this.textures.exists(spriteKey)){
    for(const p of parts)p.setVisible(false);
-   sprite=this.add.image(0,-size*.3,spriteKey).setDisplaySize(size*2.7,size*2.7);
+   sprite=this.add.image(0,-size*.3,spriteKey).setDisplaySize(size*2.8,size*2.8);
    label.setY(-size*1.95);
   }
   const view=this.add.container(x,y,[...parts,...(sprite?[sprite]:[]),label]).setDepth(7);
