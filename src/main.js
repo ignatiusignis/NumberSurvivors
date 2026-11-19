@@ -1,4 +1,4 @@
-// Number Survivors 0.4.4 — rozłączne interfejsy i ciągła leśna granica zamku
+// Number Survivors 0.4.5 — naprawa trybów sterowania, teleportacji i leśnej ściany
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -119,12 +119,12 @@ class Meadow extends Phaser.Scene{
   gameHost.addEventListener('pointerdown',event=>{if(this.controlMode==='keyboard'&&event.target.tagName==='CANVAS')this.activateKeyboard();});
   this.updateKeyboardStatus('Dotknij Aktywuj klawiaturę');
   const minimap=document.getElementById('world-minimap');
-  minimap.addEventListener('click',event=>this.teleportFromMap(event));
+  minimap.addEventListener('pointerup',event=>{event.stopPropagation();this.teleportFromMap(event);});
   this.player=this.add.container(5850,9750).setDepth(10);
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
-  this.highestRegion=1;
+  this.highestRegion=1;this.teleportTesting=false;
   this.active=[2];this.locked=[];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.manualPause=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.multishot=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.potionLevel=0;this.drops=[];this.special=null;this.eventIndex=0;this.warningUntil=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
   // Stałe elementy HUD: paski w lewym górnym rogu, dzielniki i unik na dole.
   const ui=(obj)=>obj.setScrollFactor(0).setDepth(100);
@@ -161,7 +161,7 @@ class Meadow extends Phaser.Scene{
  setControlMode(mode){
   this.controlMode=mode;this.touchControls.hidden=mode!=='touch';
   document.body.classList.toggle('touch-mode',mode==='touch');
-  if(mode==='touch')this.keyboardCapture.blur();
+  if(mode==='touch'&&this.keyboardCapture)this.keyboardCapture.blur();
   if(this.bottomPanel){
    const show=mode!=='touch';
    this.bottomPanel.setVisible(show);this.dashBox.setVisible(show);this.dashLabel.setVisible(show);this.dashHint.setVisible(show);
@@ -236,11 +236,15 @@ class Meadow extends Phaser.Scene{
   const x=clamp((event.clientX-rect.left)/rect.width*WORLD,30,WORLD-30);
   const y=clamp((event.clientY-rect.top)/rect.height*WORLD,30,WORLD-30);
   let target=null;
+  // Teleportacja jest narzędziem testowym: pomija blokadę postępu,
+  // ale nadal respektuje ściany i przeszkody.
+  this.teleportTesting=true;
   if(!this.blocked(x,y,17))target={x,y};
   else for(let radius=30;radius<=600&&!target;radius+=30)for(let a=0;a<32;a++){
    const angle=a*Math.PI/16,tx=clamp(x+Math.cos(angle)*radius,30,WORLD-30),ty=clamp(y+Math.sin(angle)*radius,30,WORLD-30);
    if(!this.blocked(tx,ty,17)){target={x:tx,y:ty};break;}
   }
+  this.teleportTesting=false;
   const message=document.getElementById('teleport-status');
   if(!target){message.textContent='Nie znaleziono bezpiecznego miejsca w pobliżu.';return;}
   this.player.setPosition(target.x,target.y);
@@ -258,8 +262,9 @@ class Meadow extends Phaser.Scene{
  // Jedyna przerwa to przełęcz na szlaku prowadzącym przez region 6.
  castleForestAt(x,y,radius=0){
   const wallY=4070+Math.sin(x/820)*65;
-  const gateX=roadNearest(x,wallY).distance<240;
-  return Math.abs(y-wallY)<175+radius&&!gateX;
+  // Przerwa dokładnie przy zachodnim odcinku szlaku (region 5 → 6).
+  const westernPass=x>=1820&&x<=2440;
+  return Math.abs(y-wallY)<175+radius&&!westernPass;
  }
  barrierAt(x,y,radius=0){return this.riverAt(x,y,radius)||this.forestWallAt(x,y,radius)||this.castleForestAt(x,y,radius);}
  obstaclesFor(cx,cy){
@@ -291,8 +296,10 @@ class Meadow extends Phaser.Scene{
  blocked(x,y,radius){
   if(x<radius||y<radius||x>WORLD-radius||y>WORLD-radius||this.barrierAt(x,y,radius)||this.structureBlocked(x,y,radius)||this.regionBoundaryAt(x,y,radius))return true;
   const targetRegion=regionAt(x,y);
-  if(targetRegion.id===7&&this.highestRegion<6)return true;
-  if(targetRegion.id<=6&&targetRegion.id>this.highestRegion+1)return true;
+  if(!this.teleportTesting){
+   if(targetRegion.id===7&&this.highestRegion<6)return true;
+   if(targetRegion.id<=6&&targetRegion.id>this.highestRegion+1)return true;
+  }
   return this.nearbyObstacles(x,y).some(o=>Math.hypot(x-o.x,y-o.y)<o.radius+radius);
  }
  moveAround(entity,vx,vy,dt,speed,radius){
