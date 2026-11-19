@@ -218,3 +218,16 @@ body:not(.touch-mode) #touch-controls{display:none!important}
 .menu-back{font-size:15px;margin-top:12px;padding:10px 22px}
 #pause-menu{border:1px solid #a8c59a;background:#315e3c;color:white;border-radius:7px;padding:9px 14px;font:bold 13px Arial;cursor:pointer}
 @media(max-height:580px){.menu-scene{padding:10px 18px}.menu-crest{font-size:18px}.menu-subtitle{margin-bottom:10px}.menu-buttons{gap:7px}.menu-buttons button{padding:10px}.menu-panel p{margin-bottom:6px}}
+
+/* v0.8.1 — dwa zakończenia rozgrywki */
+#end-overlay[hidden]{display:none!important}
+#end-overlay{position:absolute;inset:0;z-index:40;display:grid;place-items:center;padding:16px;overflow:auto;background:radial-gradient(ellipse at center,rgba(76,24,25,.95),rgba(13,19,19,.98))}
+#end-overlay.is-victory{background:radial-gradient(ellipse at center,rgba(63,85,37,.96),rgba(13,30,21,.98))}
+.end-modal{text-align:center;width:min(530px,100%);padding:clamp(20px,5vw,45px);border:3px solid #ad6a58;border-radius:17px;background:linear-gradient(145deg,#432a2b,#231e22);box-shadow:0 12px 50px #000b}
+.is-victory .end-modal{border-color:#c7ac63;background:linear-gradient(145deg,#304c30,#182d23)}
+.end-symbol{font-size:clamp(42px,9vw,82px);color:#e7b27b;text-shadow:0 5px 10px #0007}
+.is-victory .end-symbol{color:#f7d26b}
+#end-title{color:#fff0d3;font:bold clamp(28px,5vw,50px) Arial;margin:8px 0 14px}
+#end-message{font-size:clamp(16px,2.7vw,22px);line-height:1.45;margin:0 0 30px}
+#end-menu{border:2px solid #b6dca2;border-bottom:5px solid #183b21;border-radius:11px;background:linear-gradient(#4f9a51,#256a38);color:#fff7e9;font:bold clamp(17px,2.5vw,22px) Arial;padding:15px 26px;cursor:pointer;touch-action:manipulation}
+#end-menu:hover,#end-menu:focus-visible{filter:brightness(1.16);outline:2px solid #f1d38b}
