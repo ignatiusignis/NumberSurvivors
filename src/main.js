@@ -550,6 +550,20 @@ class Meadow extends Phaser.Scene{
    const color=Phaser.Display.Color.GetColor(rgb.r,rgb.g,rgb.b);
    g.fillStyle(color,1).fillRect(x,y,16.5,16.5);
   }
+  // Ciemna opaska wokół lochów maskuje sąsiednią zieloną krainę.
+  // To wyłącznie grafika: nie modyfikujemy żadnych przejść ani kolizji.
+  const fringe=170;
+  const bx1=Math.max(ox,DUNGEON.left-fringe),by1=Math.max(oy,DUNGEON.top-fringe);
+  const bx2=Math.min(ox+CHUNK,DUNGEON.right+fringe),by2=Math.min(oy+CHUNK,DUNGEON.bottom+fringe);
+  if(bx2>bx1&&by2>by1){
+   g.fillStyle(0x24252c,.95).fillRect(bx1,by1,bx2-bx1,by2-by1);
+   for(let yy=Math.floor(by1/48)*48;yy<by2;yy+=48)
+    for(let xx=Math.floor(bx1/48)*48;xx<bx2;xx+=48){
+     if(xx>=DUNGEON.left&&xx<DUNGEON.right&&yy>=DUNGEON.top&&yy<DUNGEON.bottom)continue;
+     const x=Math.max(xx,bx1),y=Math.max(yy,by1),w=Math.min(xx+48,bx2)-x,h=Math.min(yy+48,by2)-y;
+     if(w>0&&h>0){g.fillStyle(0x393943,.75).fillRect(x,y,w,h);g.lineStyle(1,0x15151b,.4).strokeRect(x,y,w,h);}
+    }
+  }
   // Oddzielne podłoże zamku i lochów — żadnej zieleni pod posadzką.
   // Dokładne prostokąty świata pozostają zgodne z dotychczasowymi kolizjami.
   for(const [bounds,base,edge,grid] of [[CASTLE,0x77787b,0x9b9a96,80],[DUNGEON,0x25252f,0x373744,64]]){
