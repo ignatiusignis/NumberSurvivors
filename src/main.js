@@ -392,6 +392,14 @@ class Meadow extends Phaser.Scene{
    g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);
   }
   g.strokePath();
+  // Nieprzebyty pas lasu wokół zamku; jedynie zachodnia brama pozostaje otwarta.
+  for(let yy=oy;yy<oy+CHUNK;yy+=40)for(let xx=ox;xx<ox+CHUNK;xx+=40){
+   const x=xx+20,y=yy+20;
+   const south=y>CASTLE.bottom-115&&y<CASTLE.bottom+160&&x>CASTLE.left-170&&x<CASTLE.right+150;
+   const west=x>CASTLE.left-170&&x<CASTLE.left+90&&y>CASTLE.top-100&&y<CASTLE.bottom+100&&Math.abs(y-2350)>270;
+   const north=y>CASTLE.top-120&&y<CASTLE.top+90&&x>CASTLE.left-170&&x<CASTLE.right+100;
+   if(south||west||north){g.fillStyle(0x173c24).fillCircle(x,y,29);g.fillStyle(0x326c37).fillCircle(x-7,y-8,20);}
+  }
   // Mury i korytarze są rysowane tym samym testem, który steruje kolizją.
   for(let yy=oy;yy<oy+CHUNK;yy+=32)for(let xx=ox;xx<ox+CHUNK;xx+=32){
    const kind=this.biomeAt(xx+16,yy+16);
