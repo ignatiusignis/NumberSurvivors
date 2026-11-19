@@ -1,4 +1,4 @@
-// Number Survivors 0.9.6 — animacje bohatera, slime'ów i walki
+// Number Survivors 0.9.7 — poprawa rozmiarów animowanych sprite'ów
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -1425,7 +1425,7 @@ class Meadow extends Phaser.Scene{
    const stride=Math.sin(now*.021),moving=len>.1||dashing;
    this.heroSprite.y=-7+(moving?Math.abs(stride)*2.5:Math.sin(now*.002)*.6)-(firing?2:0);
    this.heroSprite.setAngle((moving?stride*2.3:Math.sin(now*.0018)*.6)+(firing?(facing<0?-6:6):0));
-   this.heroSprite.setScale(firing?1.07:1,moving?1+Math.abs(stride)*.025:1);
+   this.heroSprite.setDisplaySize(76*(firing?1.07:1),76*(moving?1+Math.abs(stride)*.025:1));
    if(dashing)this.heroSprite.setAlpha(.82);else this.heroSprite.setAlpha(1);
   }
   else if(this.heroVisual){this.heroVisual.setScale(dx<-.15?-1:1,1);this.heroBoots[0].y=10+(len?Math.sin(now*.018)*3:0);this.heroBoots[1].y=10-(len?Math.sin(now*.018)*3:0);}
@@ -1462,7 +1462,7 @@ class Meadow extends Phaser.Scene{
     const phase=now*.006+enemy.animPhase;
     const bounce=Math.abs(Math.sin(phase));
     enemy.sprite.y=-enemy.size*.3-bounce*3.2;
-    enemy.sprite.setScale(1+.035*Math.sin(phase),1-.045*bounce);
+    enemy.sprite.setDisplaySize(enemy.size*2.8*(1+.035*Math.sin(phase)),enemy.size*2.8*(1-.045*bounce));
     enemy.sprite.setAngle(Math.sin(phase*.65)*2.5);
     if(now<enemy.hitUntil)enemy.sprite.setTint(0xffd1d1);
     else enemy.sprite.clearTint();
