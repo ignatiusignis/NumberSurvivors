@@ -1,4 +1,4 @@
-// Number Survivors 0.7.9 — długie sztandary i naturalne granice lasu
+// Number Survivors 0.7.10 — naturalna bariera leśna pod zamkiem i lochami
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -692,15 +692,37 @@ class Meadow extends Phaser.Scene{
     for(let j=0;j<5;j++)g.fillStyle(j%2?0x275a30:0x356e35).fillCircle(xx+16,fy-145+j*70,29);
    }
   }
-  // Mur lasu oddziela północną część świata od pozostałych regionów.
-  // Ta sama funkcja wyznacza grafikę i kolizję.
-  for(let xx=ox;xx<ox+CHUNK;xx+=48){
-   const wallY=4070+Math.sin((xx+24)/820)*65;
-   if(wallY+190<oy||wallY-190>oy+CHUNK)continue;
-   for(let yy=Math.max(oy,Math.floor((wallY-190)/48)*48);yy<Math.min(oy+CHUNK,wallY+190);yy+=48){
-    if(this.castleForestAt(xx+24,yy+24,24)){
-     g.fillStyle(0x173d24).fillCircle(xx+24,yy+24,35);
-     g.fillStyle(0x2b6835).fillCircle(xx+16,yy+16,23);
+  // Osobna bariera leśna pod zamkiem i lochami, aż na zachód mapy.
+  // Światowa siatka z przesuniętymi rzędami zapobiega powtarzalnym kolumnom.
+  // Tylko wygląd: castleForestAt nadal odpowiada za kolizje i przełęcz.
+  const stepX=76,stepY=67;
+  for(let row=Math.floor((oy-120)/stepY);row<=Math.ceil((oy+CHUNK+120)/stepY);row++){
+   const baseY=row*stepY;
+   const shift=(row&1)*stepX*.48;
+   for(let col=Math.floor((ox-125-shift)/stepX);col<=Math.ceil((ox+CHUNK+125-shift)/stepX);col++){
+    const baseX=col*stepX+shift;
+    const jitterX=(hash(col,row,9210)-.5)*25;
+    const jitterY=(hash(col,row,9211)-.5)*21;
+    const x=baseX+jitterX,y=baseY+jitterY;
+    if(!this.castleForestAt(x,y,0))continue;
+    // Nie zasłaniamy wizualnie jedynego przejścia.
+    if(x>1740&&x<2520)continue;
+    const radius=34+hash(col,row,9212)*17;
+    const pine=hash(col,row,9213)>.89;
+    g.fillStyle(0x102d20,.5).fillEllipse(x+8,y+radius*.66,radius*2.25,radius*.85);
+    g.fillStyle(0x62452b).fillRoundedRect(x-radius*.13,y-radius*.02,radius*.28,radius*1.12,5);
+    g.lineStyle(3,0x3d2b20,.8).lineBetween(x,y+radius*.5,x-radius*.34,y+radius*.94);
+    if(pine){
+     g.fillStyle(0x173e2e).fillPoints([{x:x,y:y-radius*1.32},{x:x-radius*.85,y:y+radius*.45},{x:x+radius*.85,y:y+radius*.45}],true);
+     g.fillStyle(0x376e43).fillPoints([{x:x,y:y-radius*1.13},{x:x-radius*.68,y:y+radius*.17},{x:x+radius*.68,y:y+radius*.17}],true);
+    }else{
+     g.fillStyle(0x143b25).fillEllipse(x+5,y+5,radius*2.5,radius*1.98);
+     for(let k=0;k<5;k++){
+      const angle=k*2.4+hash(col,row,9220+k)*.7;
+      const px=x+Math.cos(angle)*radius*.42,py=y-7+Math.sin(angle)*radius*.34;
+      g.fillStyle(k%2?0x326c3b:0x275a32).fillEllipse(px,py,radius*1.4,radius*1.1);
+     }
+     g.fillStyle(0x659447,.43).fillEllipse(x-radius*.32,y-radius*.53,radius*.75,radius*.29);
     }
    }
   }
