@@ -1,4 +1,4 @@
-// Number Survivors 0.8.1 — teczka z czerwonymi paskami i ekrany zakończenia
+// Number Survivors 0.8.2 — widoczny cel w lochach i test zwycięstwa
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -187,9 +187,21 @@ class Meadow extends Phaser.Scene{
   this.updateKeyboardStatus('Dotknij Aktywuj klawiaturę');
   const minimap=document.getElementById('world-minimap');
   minimap.addEventListener('pointerup',event=>{event.stopPropagation();this.teleportFromMap(event);});
+  const caseTest=document.getElementById('test-briefcase');
+  if(caseTest)caseTest.addEventListener('click',()=>{
+   if(!this.manualPause)return;
+   this.teleportTesting=true;
+   const candidates=[[this.briefcaseX-140,this.briefcaseY],[this.briefcaseX-180,this.briefcaseY],[this.briefcaseX-240,this.briefcaseY]];
+   const target=candidates.find(([x,y])=>!this.blocked(x,y,17));
+   this.teleportTesting=false;
+   if(!target){document.getElementById('teleport-status').textContent='Brak wolnego miejsca przy teczce.';return;}
+   this.player.setPosition(...target);this.highestRegion=6;this.cameras.main.centerOn(...target);
+   this.updateTerrain();this.drawMinimap();
+   document.getElementById('teleport-status').textContent='Przeniesiono w pobliże teczki. Wznów grę i podejdź do niej.';
+  });
   this.player=this.add.container(420,11500).setDepth(10);
   // Cel wyprawy: teczka z czerwonymi paskami na końcu lochów.
-  this.briefcaseX=10050;this.briefcaseY=2350;
+  this.briefcaseX=10200;this.briefcaseY=2300;
   const caseArt=this.add.graphics().setDepth(8);
   caseArt.fillStyle(0x131719,.45).fillEllipse(this.briefcaseX+3,this.briefcaseY+16,52,15);
   caseArt.fillStyle(0x20242a).fillRoundedRect(this.briefcaseX-24,this.briefcaseY-14,48,35,5);
@@ -198,6 +210,8 @@ class Meadow extends Phaser.Scene{
   caseArt.lineStyle(6,0xb52e35).lineBetween(this.briefcaseX+7,this.briefcaseY-12,this.briefcaseX+7,this.briefcaseY+18);
   caseArt.lineStyle(5,0xc6a975).strokeRoundedRect(this.briefcaseX-9,this.briefcaseY-23,18,11,3);
   this.briefcaseArt=caseArt;
+  caseArt.setScale(1.9);
+  this.briefcaseBeacon=this.add.text(this.briefcaseX,this.briefcaseY-85,'★ TECZKA ★',{font:'bold 22px Arial',color:'#ffd86a',stroke:'#151819',strokeThickness:5}).setOrigin(.5).setDepth(12);
   // Jedna gotowa tekstura radialnego półmroku, bez przeliczania światła co klatkę.
   const fogCanvas=document.createElement('canvas');fogCanvas.width=2048;fogCanvas.height=2048;
   const fogCtx=fogCanvas.getContext('2d');
@@ -995,6 +1009,11 @@ class Meadow extends Phaser.Scene{
   ctx.strokeStyle='#302719';ctx.lineWidth=4;ctx.stroke();ctx.strokeStyle='#f2d89b';ctx.lineWidth=2;ctx.stroke();
   ctx.font='bold 14px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
   for(const region of [...REGIONS,{id:7,x:7300,y:2350},{id:8,x:9450,y:2350}]){const px=region.x/WORLD*w,py=region.y/WORLD*h;ctx.lineWidth=3;ctx.strokeStyle='#18251e';ctx.strokeText(String(region.id),px,py);ctx.fillStyle='#ffffff';ctx.fillText(String(region.id),px,py);}
+  // Cel wyprawy jest oznaczony także na mapie pauzy.
+  const bx=this.briefcaseX/WORLD*w,by=this.briefcaseY/WORLD*h;
+  ctx.fillStyle='#ffce51';ctx.strokeStyle='#6e2028';ctx.lineWidth=3;
+  ctx.beginPath();ctx.arc(bx,by,7,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.font='bold 12px Arial';ctx.fillStyle='#ffe5a3';ctx.textAlign='center';ctx.fillText('TECZKA',bx,by-13);
   const px=this.player.x/WORLD*w,py=this.player.y/WORLD*h;
   ctx.beginPath();ctx.arc(px,py,7,0,Math.PI*2);ctx.fillStyle='#ffe35b';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#151515';ctx.stroke();
  }
