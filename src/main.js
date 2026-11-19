@@ -218,7 +218,7 @@ class Meadow extends Phaser.Scene{
  dungeonOpen(x,y){
   // Szerokie skrzyżowania i korytarze w układzie kratowym.
   const horizontal=[1500,2300,3100].some(yy=>Math.abs(y-yy)<110);
-  const vertical=[10850,11600,12200].some(xx=>Math.abs(x-xx)<110);
+  const vertical=[8850,9600,10200].some(xx=>Math.abs(x-xx)<110);
   return horizontal||vertical;
  }
  structureBlocked(x,y,radius=0){
@@ -234,9 +234,9 @@ class Meadow extends Phaser.Scene{
    if(y1>CASTLE.bottom-75&&y0<CASTLE.bottom)return true;
    if(x1>CASTLE.right-75&&x0<CASTLE.right&&Math.abs(y-2300)>170)return true;
    // Dziedziniec, dwa skrzydła z drzwiami pośrodku.
-   if(x1>8800&&x0<8900&&y1>1450&&y0<3150&&Math.abs(y-2300)>180)return true;
-   if(x1>9700&&x0<9800&&y1>1450&&y0<3150&&Math.abs(y-2300)>180)return true;
-   if(y1>1450&&y0<1540&&x1>8800&&x0<9800&&Math.abs(x-9300)>170)return true;
+   if(x1>6800&&x0<6900&&y1>1450&&y0<3150&&Math.abs(y-2300)>180)return true;
+   if(x1>7700&&x0<7800&&y1>1450&&y0<3150&&Math.abs(y-2300)>180)return true;
+   if(y1>1450&&y0<1540&&x1>6800&&x0<7800&&Math.abs(x-7300)>170)return true;
   }
   if(dungeonOuter){
    if(y0<DUNGEON.top+75&&y1>DUNGEON.top)return true;
