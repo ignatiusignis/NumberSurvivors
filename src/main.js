@@ -1,4 +1,4 @@
-// Number Survivors 0.7.3 — suche równiny, pustkowia i organiczne granice
+// Number Survivors 0.7.4 — kamienny zamek, zamknięte lochy i poprawki dróg
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -550,6 +550,23 @@ class Meadow extends Phaser.Scene{
    const color=Phaser.Display.Color.GetColor(rgb.r,rgb.g,rgb.b);
    g.fillStyle(color,1).fillRect(x,y,16.5,16.5);
   }
+  // Oddzielne podłoże zamku i lochów — żadnej zieleni pod posadzką.
+  // Dokładne prostokąty świata pozostają zgodne z dotychczasowymi kolizjami.
+  for(const [bounds,base,edge,grid] of [[CASTLE,0x77787b,0x9b9a96,80],[DUNGEON,0x25252f,0x373744,64]]){
+   const x1=Math.max(ox,bounds.left),y1=Math.max(oy,bounds.top);
+   const x2=Math.min(ox+CHUNK,bounds.right),y2=Math.min(oy+CHUNK,bounds.bottom);
+   if(x2<=x1||y2<=y1)continue;
+   g.fillStyle(base,1).fillRect(x1,y1,x2-x1,y2-y1);
+   for(let yy=Math.floor(y1/grid)*grid;yy<y2;yy+=grid)
+    for(let xx=Math.floor(x1/grid)*grid;xx<x2;xx+=grid){
+     const tx=Math.max(xx,x1),ty=Math.max(yy,y1),tw=Math.min(xx+grid,x2)-tx,th=Math.min(yy+grid,y2)-ty;
+     if(tw<=0||th<=0)continue;
+     const n=hash(Math.floor(xx/grid),Math.floor(yy/grid),7800);
+     g.fillStyle(edge,n*.16).fillRect(tx,ty,tw,th);
+     g.lineStyle(1,0x12131b,.22).strokeRect(tx,ty,tw,th);
+     if(n>.83){g.lineStyle(1,0x1b1b24,.4).lineBetween(tx+tw*.3,ty+th*.4,tx+tw*.6,ty+th*.57);}
+    }
+  }
   for(let i=0;i<65;i++){
    const x=ox+hash(cx,cy,i*3+1)*CHUNK;
    const y=oy+hash(cx,cy,i*3+2)*CHUNK;
@@ -722,14 +739,27 @@ class Meadow extends Phaser.Scene{
     const dx=q.x-p.x,dy=q.y-p.y,length=Math.hypot(dx,dy);
     if(length<.001)continue;
     const nx=-dy/length*half,ny=dx/length*half;
-    // Jeden piksel zakładki zapobiega mikroszczelinom na połączeniach.
-    const ex=dx/length,ey=dy/length;
+    // Połączenie sąsiednich odcinków wspólną krawędzią: bez klinów.
+    const join=(index,side)=>{
+     const point=path[index],prev=path[Math.max(0,index-1)],next=path[Math.min(path.length-1,index+1)];
+     const vx1=point.x-prev.x,vy1=point.y-prev.y,l1=Math.hypot(vx1,vy1)||1;
+     const vx2=next.x-point.x,vy2=next.y-point.y,l2=Math.hypot(vx2,vy2)||1;
+     const ax=-vy1/l1,ay=vx1/l1,bx=-vy2/l2,by=vx2/l2;
+     const mx=ax+bx,my=ay+by,ml=Math.hypot(mx,my)||1;
+     const dot=Math.max(.5,(mx/ml)*bx+(my/ml)*by);
+     const dist=Math.min(half*1.65,half/dot)*side;
+     return {x:point.x+mx/ml*dist,y:point.y+my/ml*dist};
+    };
+    const pL=join(i-1,1),pR=join(i-1,-1),qL=join(i,1),qR=join(i,-1);
     const color=blendRoad((p.x+q.x)/2,(p.y+q.y)/2,paletteIndex);
-    g.fillStyle(color,1).fillPoints([
-     {x:p.x+nx-ex,y:p.y+ny-ey},{x:q.x+nx+ex,y:q.y+ny+ey},
-     {x:q.x-nx+ex,y:q.y-ny+ey},{x:p.x-nx-ex,y:p.y-ny-ey}
-    ],true);
+    g.fillStyle(color,1).fillPoints([pL,qL,qR,pR],true);
    }
+  }
+  // Łagodne zamknięcie drogi na jej ostatnim punkcie.
+  const endPoint=path[path.length-1];
+  if(endPoint.x>=ox-70&&endPoint.x<=ox+CHUNK+70&&endPoint.y>=oy-70&&endPoint.y<=oy+CHUNK+70){
+   g.fillStyle(blendRoad(endPoint.x,endPoint.y,0)).fillCircle(endPoint.x,endPoint.y,62);
+   g.fillStyle(blendRoad(endPoint.x,endPoint.y,1)).fillCircle(endPoint.x,endPoint.y,54);
   }
   // Drobne plamki, kamyczki i ślady ziemi są wypalane w teksturze chunku.
   // Nie powstają żadne nowe obiekty ani obliczenia w każdej klatce.
@@ -765,6 +795,28 @@ class Meadow extends Phaser.Scene{
     g.lineStyle(1,kind==='castle'?0x81838c:0x424452,.6).strokeRect(xx,yy,32,32);
    }else if(kind==='dungeon'){
     g.lineStyle(1,0x777884,.23).strokeRect(xx,yy,32,32);
+   }
+  }
+  // Rysunkowe szczegóły architektury — statyczne, wypalane w teksturze.
+  for(let i=0;i<12;i++){
+   const x=ox+hash(cx,cy,8100+i*3)*CHUNK,y=oy+hash(cx,cy,8101+i*3)*CHUNK;
+   const kind=this.biomeAt(x,y);
+   if(kind!=='castle'&&kind!=='dungeon'||this.structureBlocked(x,y,25))continue;
+   if(kind==='castle'){
+    g.fillStyle(0x34323a,.22).fillEllipse(x+5,y+9,24,10);
+    g.fillStyle(0x57565b).fillPoints([{x:x-12,y:y+4},{x:x-6,y:y-9},{x:x+8,y:y-8},{x:x+13,y:y+5}],true);
+    g.fillStyle(0xa6a49e,.65).fillEllipse(x-5,y-7,12,4);
+   }else{
+    // Pochodnia i kamienie, bez animacji i nowych kolizji.
+    if(i%3===0){
+     g.fillStyle(0x9a703f).fillRoundedRect(x-3,y-1,6,16,2);
+     g.fillStyle(0xe77e2f,.35).fillCircle(x,y-9,23);
+     g.fillStyle(0xffb54d).fillEllipse(x,y-10,10,18);
+     g.fillStyle(0xffe4a0).fillEllipse(x,y-9,4,9);
+    }else{
+     g.fillStyle(0x464650).fillEllipse(x,y,19,9);
+     g.fillStyle(0x71717b,.55).fillEllipse(x-4,y-3,10,4);
+    }
    }
   }
   for(const o of this.obstaclesFor(cx,cy)){
