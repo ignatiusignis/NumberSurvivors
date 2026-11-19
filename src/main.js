@@ -1,4 +1,4 @@
-// Number Survivors 0.6.3 — płynne zakręty, faktura i drogi dopasowane do biomów
+// Number Survivors 0.6.4 — miękkie granice biomów, naturalna rzeka i drogi
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -462,14 +462,15 @@ class Meadow extends Phaser.Scene{
   // Przesunięcie poleceń rysowania z globalnych współrzędnych do lokalnych.
   g.translateCanvas(-ox,-oy);
   // Małe pola o zmiennym nasyceniu tworzą łagodne, nieregularne przejście.
-  for(let iy=0;iy<10;iy++)for(let ix=0;ix<10;ix++){
-   const x=ox+ix*64,y=oy+iy*64;
-   const noise=(hash(cx*10+ix,cy*10+iy,2)-.5)*.24;
-   const b=biomeWeights(x+32,y+32);
+  for(let iy=0;iy<40;iy++)for(let ix=0;ix<40;ix++){
+   const x=ox+ix*16,y=oy+iy*16;
+   // Drobną mozaikę kolorów zapisujemy tylko raz do tekstury terenu.
+   const noise=(hash(Math.floor(x/32),Math.floor(y/32),2)-.5)*.10;
+   const b=biomeWeights(x+8,y+8);
    const rgb={r:Math.round(130*b.meadow+94*b.swamp+82*b.thicket+48*b.forest+168*b.plains+147*b.badlands+111*b.castle+55*b.dungeon),g:Math.round(189*b.meadow+111*b.swamp+141*b.thicket+99*b.forest+125*b.plains+69*b.badlands+113*b.castle+56*b.dungeon),b:Math.round(71*b.meadow+65*b.swamp+66*b.thicket+55*b.forest+82*b.plains+59*b.badlands+119*b.castle+69*b.dungeon)};
    const n=noise*26;rgb.r=clamp(rgb.r+n,0,255);rgb.g=clamp(rgb.g+n,0,255);rgb.b=clamp(rgb.b+n,0,255);
    const color=Phaser.Display.Color.GetColor(rgb.r,rgb.g,rgb.b);
-   g.fillStyle(color,1).fillRect(x,y,65,65);
+   g.fillStyle(color,1).fillRect(x,y,16.5,16.5);
   }
   for(let i=0;i<65;i++){
    const x=ox+hash(cx,cy,i*3+1)*CHUNK;
@@ -499,12 +500,29 @@ class Meadow extends Phaser.Scene{
    this.drawMeadowDecoration(g,x,y,variant,scale);
   }
   // Ciągłe bariery: rzeka z przejściem na północy oraz gęsty las z obejściem na południu.
-  for(let yy=oy;yy<oy+CHUNK;yy+=32){
-   const rx=this.riverX(yy);
-   if(yy>8100&&yy<11700&&rx+145>=ox&&rx-145<=ox+CHUNK){
-    g.fillStyle(0x355d4b).fillRect(rx-156,yy,312,33);
-    g.fillStyle(0x3d8292).fillRect(rx-145,yy,290,33);
-    g.lineStyle(2,0x8db5ae,.5).lineBetween(rx-145,yy,rx-145,yy+33);
+  // Rzeka: łagodne brzegi, jeden nieprzerwany pas zamiast schodków 32 px.
+  // Renderujemy także fragmenty sąsiednich chunków, aby uniknąć szwów.
+  const riverStart=Math.max(8100,oy-22),riverEnd=Math.min(11700,oy+CHUNK+22);
+  if(riverEnd>riverStart){
+   for(let yy=Math.floor(riverStart/12)*12;yy<riverEnd;yy+=12){
+    const y1=Math.max(8100,yy),y2=Math.min(11700,yy+12);
+    if(y2<=y1)continue;
+    const mid=(y1+y2)/2,rx=this.riverX(mid);
+    if(rx+170<ox||rx-170>ox+CHUNK)continue;
+    const sway=5*Math.sin(mid/91)+3*Math.sin(mid/37);
+    const x1=this.riverX(y1)+sway,x2=this.riverX(y2)+sway;
+    for(const [half,color] of [[159,0x394f3b],[152,0x69866b],[144,0x3d8292]]){
+     g.lineStyle(half*2,color,1).lineBetween(x1,y1,x2,y2);
+     g.fillStyle(color,1).fillCircle(x1,y1,half);
+     g.fillCircle(x2,y2,half);
+    }
+   }
+   // Ciche refleksy na wodzie; również wypalane w teksturze.
+   for(let i=0;i<12;i++){
+    const y=oy+hash(cx,cy,3800+i*2)*CHUNK;
+    const x=this.riverX(y)+(hash(cx,cy,3801+i*2)-.5)*190;
+    if(y<8100||y>11700||x<ox||x>ox+CHUNK)continue;
+    g.lineStyle(1.6,0x9ac1b8,.3).lineBetween(x-13,y,x+11,y);
    }
   }
   for(let xx=ox;xx<ox+CHUNK;xx+=32){
@@ -565,13 +583,23 @@ class Meadow extends Phaser.Scene{
     default:return [0x655039,0xb99c70,0xd7ba89];
    }
   };
-  // Rysujemy krótkie odcinki, żeby kolor nawierzchni płynnie podążał za biomem.
-  // Połączenia są okrągłe; znikają kliny i ostre narożniki.
+  // Kolor drogi interpolowany na podstawie udziału biomów, nie skokowo
+  // według dominującego biomu. Dzięki temu nie powstają kolorowe półkola.
+  const blendRoad=(x,y,index)=>{
+   const w=biomeWeights(x,y);
+   let red=0,green=0,blue=0,total=0;
+   for(const [kind,weight] of Object.entries(w)){
+    if(weight<=0)continue;
+    const color=roadPalette(kind)[index];
+    red+=((color>>16)&255)*weight;green+=((color>>8)&255)*weight;blue+=(color&255)*weight;total+=weight;
+   }
+   return Phaser.Display.Color.GetColor(Math.round(red/total),Math.round(green/total),Math.round(blue/total));
+  };
   for(const [width,paletteIndex] of [[124,0],[108,1]]){
    for(let i=1;i<path.length;i++){
     const p=path[i-1],q=path[i];
     if(Math.max(p.x,q.x)<ox-70||Math.min(p.x,q.x)>ox+CHUNK+70||Math.max(p.y,q.y)<oy-70||Math.min(p.y,q.y)>oy+CHUNK+70)continue;
-    const color=roadPalette(this.biomeAt((p.x+q.x)/2,(p.y+q.y)/2))[paletteIndex];
+    const color=blendRoad((p.x+q.x)/2,(p.y+q.y)/2,paletteIndex);
     g.lineStyle(width,color,1).lineBetween(p.x,p.y,q.x,q.y);
     g.fillStyle(color,1).fillCircle(q.x,q.y,width/2);
     g.fillCircle(p.x,p.y,width/2);
@@ -579,7 +607,7 @@ class Meadow extends Phaser.Scene{
   }
   // Drobne plamki, kamyczki i ślady ziemi są wypalane w teksturze chunku.
   // Nie powstają żadne nowe obiekty ani obliczenia w każdej klatce.
-  for(let i=0;i<85;i++){
+  for(let i=0;i<125;i++){
    const x=ox+hash(cx,cy,2300+i*4)*CHUNK,y=oy+hash(cx,cy,2301+i*4)*CHUNK;
    let d2=Infinity;
    for(let j=1;j<path.length;j++){
