@@ -1,4 +1,4 @@
-// Number Survivors 0.7.1 — Stary Trakt we właściwym biomie
+// Number Survivors 0.7.2 — rysunkowe Zarośla i Gęsty Las
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -424,6 +424,59 @@ class Meadow extends Phaser.Scene{
    }
   }
  }
+ drawThicket(g,x,y,r,seed){
+  // Nieregularne kępy zamiast okrągłych placków; obszar kolizji bez zmian.
+  g.fillStyle(0x1b4125,.35).fillEllipse(x+7,y+12,r*2.2,r*.8);
+  for(let j=0;j<9;j++){
+   const a=j*2.399+hash(seed,j,11)*.5;
+   const distance=r*(.23+hash(seed,j,12)*.42);
+   const px=x+Math.cos(a)*distance,py=y+Math.sin(a)*distance*.67;
+   const size=r*(.33+hash(seed,j,13)*.18);
+   g.fillStyle(0x204b2a).fillEllipse(px+3,py+4,size*2.05,size*1.65);
+   g.fillStyle(j%3===0?0x6ca343:j%3===1?0x3e7937:0x4e8d3b).fillEllipse(px,py,size*1.85,size*1.45);
+   g.fillStyle(0x8cb75c,.6).fillEllipse(px-size*.25,py-size*.25,size*.55,size*.23);
+  }
+  for(let j=0;j<4;j++){
+   const px=x+(hash(seed,j,20)-.5)*r*1.3,py=y+(hash(seed,j,21)-.5)*r*.8;
+   g.lineStyle(2.5,0x76533a).lineBetween(px,py+6,px+6,py-12);
+   g.lineStyle(2,0x76533a).lineBetween(px+3,py-5,px+12,py-9);
+  }
+ }
+ drawForestTree(g,x,y,r,seed){
+  // Lekka perspektywa 3/4: widoczny pień, cień i kilka warstw korony.
+  g.fillStyle(0x173b24,.27).fillEllipse(x+12,y+16,r*2.2,r*.85);
+  g.fillStyle(0x4c3829).fillRoundedRect(x-8,y-r*.12,16,r*.9,4);
+  g.fillStyle(0x99734c,.7).fillRect(x-4,y-r*.05,4,r*.65);
+  for(let j=0;j<6;j++){
+   const a=j*Math.PI*2/6+.3;
+   const px=x+Math.cos(a)*r*.44,py=y-r*.5+Math.sin(a)*r*.31;
+   const rr=r*(.53+hash(seed,j,25)*.12);
+   g.fillStyle(0x163e29).fillCircle(px+3,py+5,rr+3);
+   g.fillStyle(j%3===0?0x3d7d3c:j%3===1?0x285e36:0x347043).fillCircle(px,py,rr);
+  }
+  g.fillStyle(0x6da34e,.75).fillEllipse(x-r*.27,y-r*.92,r*.65,r*.24);
+ }
+ drawWildGround(g,x,y,kind,variant,s){
+  if(kind==='thicket'){
+   if(variant===0){ // paproć
+    for(let j=-2;j<=2;j++){
+     g.lineStyle(2,0x2b6232).lineBetween(x,y+8,x+j*8*s,y-(14-Math.abs(j)*3)*s);
+     g.fillStyle(j%2?0x5a9d43:0x77aa4b).fillEllipse(x+j*6*s,y-(9-Math.abs(j)*2)*s,12*s,5*s);
+    }
+   }else if(variant===1){g.fillStyle(0x6d5637,.6).fillEllipse(x,y,18*s,5*s);g.lineStyle(2,0x77513a).lineBetween(x-9*s,y,x+10*s,y-5*s);}
+   else{g.fillStyle(0x326c37,.65).fillEllipse(x,y,23*s,9*s);g.fillStyle(0x79a54a,.65).fillEllipse(x-5*s,y-3*s,10*s,4*s);}
+  }else{
+   if(variant===0){ // grzyby
+    for(let j=0;j<2;j++){
+     const xx=x+j*12*s,yy=y+j*4*s;
+     g.fillStyle(0xe4c99a).fillRoundedRect(xx-2*s,yy-4*s,4*s,11*s,2*s);
+     g.fillStyle(0xa45435).fillEllipse(xx,yy-5*s,13*s,7*s);
+     g.fillStyle(0xf6d8ac).fillCircle(xx-3*s,yy-6*s,1.6*s);
+    }
+   }else if(variant===1){g.fillStyle(0x775b32,.6).fillEllipse(x,y,19*s,5*s);g.fillStyle(0xb38c4e,.7).fillEllipse(x+7*s,y-4*s,11*s,5*s);}
+   else{g.lineStyle(2,0x426e38).lineBetween(x,y+5*s,x+4*s,y-14*s);g.fillStyle(0x638f47).fillEllipse(x-3*s,y-7*s,15*s,6*s);}
+  }
+ }
  drawMeadowDecoration(g,x,y,variant,scale=1){
   // Elementy rysunkowe: miękkie cienie, ciemny kontur, jasne akcenty.
   const s=scale;
@@ -498,6 +551,17 @@ class Meadow extends Phaser.Scene{
    const variant=Math.floor(hash(cx,cy,1102+i*5)*4);
    const scale=.7+hash(cx,cy,1103+i*5)*.55;
    this.drawMeadowDecoration(g,x,y,variant,scale);
+  }
+  // Rysunkowe runo w biomach 3 i 4; bez nowych kolizji i obiektów sceny.
+  for(let i=0;i<30;i++){
+   const x=ox+20+hash(cx,cy,4100+i*4)*(CHUNK-40);
+   const y=oy+20+hash(cx,cy,4101+i*4)*(CHUNK-40);
+   const kind=this.biomeAt(x,y);
+   if(kind!=='thicket'&&kind!=='forest')continue;
+   if(biomeWeights(x,y)[kind]<.77||roadNearest(x,y).distance<100||this.barrierAt(x,y,32)||this.regionBoundaryAt(x,y,25))continue;
+   const variant=Math.floor(hash(cx,cy,4102+i*4)*3);
+   const scale=.7+hash(cx,cy,4103+i*4)*.65;
+   this.drawWildGround(g,x,y,kind,variant,scale);
   }
   // Ciągłe bariery: rzeka z przejściem na północy oraz gęsty las z obejściem na południu.
   // Rzeka z ciągłych czworokątów: bez wielkich nakładających się kół.
@@ -654,12 +718,9 @@ class Meadow extends Phaser.Scene{
    if(o.kind==='swamp'){
     this.drawSwampPond(g,o);
    }else if(o.kind==='thicket'){
-    g.fillStyle(0x294c29).fillCircle(o.x,o.y,o.radius+8);
-    for(let j=0;j<6;j++)g.fillStyle(j%2?0x477d38:0x3c682d).fillCircle(o.x+Math.cos(j)*o.radius*.55,o.y+Math.sin(j)*o.radius*.55,o.radius*.58);
-   }else{
-    g.fillStyle(0x493728).fillRect(o.x-9,o.y-8,18,29);
-    g.fillStyle(0x1e4a2a).fillCircle(o.x,o.y-12,o.radius+9);
-    g.fillStyle(0x316d35).fillCircle(o.x-9,o.y-18,o.radius*.7);
+    this.drawThicket(g,o.x,o.y,o.radius,Math.floor(o.x+o.y));
+   }else if(o.kind==='forest'){
+    this.drawForestTree(g,o.x,o.y,o.radius,Math.floor(o.x+o.y));
    }
   }
   // Stary Trakt — powalone drzewo przy zachodniej granicy świata.
