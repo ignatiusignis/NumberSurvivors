@@ -1,4 +1,4 @@
-// Number Survivors 0.6.2 — bagienna paleta i zaokrąglone drogi
+// Number Survivors 0.6.3 — płynne zakręty, faktura i drogi dopasowane do biomów
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -535,28 +535,64 @@ class Meadow extends Phaser.Scene{
     if(kind==='forest'||kind==='thicket')g.fillStyle(0x367342).fillCircle(xx+24,yy+24,24);
    }
   }
-  // Rysunkowa droga: oddzielne odcinki i okrągłe zakończenia eliminują
-  // ostre trójkąty na zakrętach. Trasa i jej szerokość pozostają bez zmian.
-  const roadVisible=(a,b)=>!(Math.max(a.x,b.x)<ox-135||Math.min(a.x,b.x)>ox+CHUNK+135||Math.max(a.y,b.y)<oy-135||Math.min(a.y,b.y)>oy+CHUNK+135);
-  for(const [width,color,alpha] of [[120,0x5c4b32,.92],[104,0xb89a69,1]]){
-   g.lineStyle(width,color,alpha);
-   for(let i=0;i<ROAD.length-1;i++){
-    const a=ROAD[i],b=ROAD[i+1];
-    if(roadVisible(a,b))g.lineBetween(a.x,a.y,b.x,b.y);
-   }
-   g.fillStyle(color,alpha);
-   for(const p of ROAD){
-    if(p.x>=ox-width&&p.x<=ox+CHUNK+width&&p.y>=oy-width&&p.y<=oy+CHUNK+width)g.fillCircle(p.x,p.y,width/2);
+  // Zaokrąglona trasa: krzywe kwadratowe łagodzą zakręty, ale zachowują
+  // wszystkie punkty szlaku i jego dotychczasowe połączenia.
+  const path=[];
+  const push=(x,y)=>{const last=path[path.length-1];if(!last||Math.hypot(last.x-x,last.y-y)>1)path.push({x,y});};
+  push(ROAD[0].x,ROAD[0].y);
+  for(let i=1;i<ROAD.length-1;i++){
+   const prev=ROAD[i-1],p=ROAD[i],next=ROAD[i+1];
+   const d1=Math.hypot(p.x-prev.x,p.y-prev.y),d2=Math.hypot(next.x-p.x,next.y-p.y);
+   const r=Math.min(125,d1*.22,d2*.22);
+   const enter={x:p.x-(p.x-prev.x)*r/d1,y:p.y-(p.y-prev.y)*r/d1};
+   const leave={x:p.x+(next.x-p.x)*r/d2,y:p.y+(next.y-p.y)*r/d2};
+   push(enter.x,enter.y);
+   for(let k=1;k<=12;k++){
+    const t=k/12,u=1-t;
+    push(u*u*enter.x+2*u*t*p.x+t*t*leave.x,u*u*enter.y+2*u*t*p.y+t*t*leave.y);
    }
   }
-  // Subtelne drobinki ziemi i kamyczki na poboczach, bez zmian kolizji.
-  for(let i=0;i<18;i++){
-   const x=ox+hash(cx,cy,2300+i*3)*CHUNK,y=oy+hash(cx,cy,2301+i*3)*CHUNK;
-   const d=roadNearest(x,y).distance;
-   if(d>28&&d<49){
-    const size=2+hash(cx,cy,2302+i*3)*4;
-    g.fillStyle(0xd0b481,.55).fillEllipse(x,y,size*2,size);
+  push(ROAD[ROAD.length-1].x,ROAD[ROAD.length-1].y);
+  const roadPalette=kind=>{
+   switch(kind){
+    case 'swamp':return [0x4d4c31,0x857b50,0xa79b69];
+    case 'forest':return [0x4a3827,0x866744,0xaa875c];
+    case 'thicket':return [0x55482c,0x9a8253,0xb9a06d];
+    case 'plains':return [0x74523b,0xc19a6b,0xd4b282];
+    case 'badlands':return [0x743f35,0xb47759,0xd09a72];
+    case 'castle':return [0x42424a,0x8c8b86,0xb0ada2];
+    case 'dungeon':return [0x34343c,0x6e6c72,0x929097];
+    default:return [0x655039,0xb99c70,0xd7ba89];
    }
+  };
+  // Rysujemy krótkie odcinki, żeby kolor nawierzchni płynnie podążał za biomem.
+  // Połączenia są okrągłe; znikają kliny i ostre narożniki.
+  for(const [width,paletteIndex] of [[124,0],[108,1]]){
+   for(let i=1;i<path.length;i++){
+    const p=path[i-1],q=path[i];
+    if(Math.max(p.x,q.x)<ox-70||Math.min(p.x,q.x)>ox+CHUNK+70||Math.max(p.y,q.y)<oy-70||Math.min(p.y,q.y)>oy+CHUNK+70)continue;
+    const color=roadPalette(this.biomeAt((p.x+q.x)/2,(p.y+q.y)/2))[paletteIndex];
+    g.lineStyle(width,color,1).lineBetween(p.x,p.y,q.x,q.y);
+    g.fillStyle(color,1).fillCircle(q.x,q.y,width/2);
+    g.fillCircle(p.x,p.y,width/2);
+   }
+  }
+  // Drobne plamki, kamyczki i ślady ziemi są wypalane w teksturze chunku.
+  // Nie powstają żadne nowe obiekty ani obliczenia w każdej klatce.
+  for(let i=0;i<85;i++){
+   const x=ox+hash(cx,cy,2300+i*4)*CHUNK,y=oy+hash(cx,cy,2301+i*4)*CHUNK;
+   let d2=Infinity;
+   for(let j=1;j<path.length;j++){
+    const p=path[j-1],q=path[j],vx=q.x-p.x,vy=q.y-p.y;
+    if(x<Math.min(p.x,q.x)-60||x>Math.max(p.x,q.x)+60||y<Math.min(p.y,q.y)-60||y>Math.max(p.y,q.y)+60)continue;
+    const t=clamp(((x-p.x)*vx+(y-p.y)*vy)/(vx*vx+vy*vy||1),0,1);
+    const dx=x-p.x-t*vx,dy=y-p.y-t*vy;d2=Math.min(d2,dx*dx+dy*dy);
+   }
+   if(d2>48*48)continue;
+   const palette=roadPalette(this.biomeAt(x,y));
+   const n=hash(cx,cy,2302+i*4),size=1.5+hash(cx,cy,2303+i*4)*4;
+   g.fillStyle(n<.55?palette[2]:palette[0],n<.55?.26:.13);
+   g.fillEllipse(x,y,size*(n<.2?3:2),size*(n<.2?.65:1));
   }
   // Nieprzebyty pas lasu wokół zamku; jedynie zachodnia brama pozostaje otwarta.
   for(let yy=oy;yy<oy+CHUNK;yy+=40)for(let xx=ox;xx<ox+CHUNK;xx+=40){
