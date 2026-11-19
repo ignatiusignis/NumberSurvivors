@@ -1,4 +1,4 @@
-// Number Survivors 0.7.5 — zamek, lochy, rzeka, drzewo i zakręty
+// Number Survivors 0.7.6 — światło w lochach i naturalne zakończenia
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -142,6 +142,19 @@ class Meadow extends Phaser.Scene{
   const minimap=document.getElementById('world-minimap');
   minimap.addEventListener('pointerup',event=>{event.stopPropagation();this.teleportFromMap(event);});
   this.player=this.add.container(420,11500).setDepth(10);
+  // Jedna gotowa tekstura radialnego półmroku, bez przeliczania światła co klatkę.
+  const fogCanvas=document.createElement('canvas');fogCanvas.width=2048;fogCanvas.height=2048;
+  const fogCtx=fogCanvas.getContext('2d');
+  const fogGradient=fogCtx.createRadialGradient(1024,1024,115,1024,1024,940);
+  fogGradient.addColorStop(0,'rgba(9,10,18,0)');
+  fogGradient.addColorStop(.20,'rgba(9,10,18,.10)');
+  fogGradient.addColorStop(.46,'rgba(9,10,18,.62)');
+  fogGradient.addColorStop(.78,'rgba(9,10,18,.94)');
+  fogGradient.addColorStop(1,'rgba(9,10,18,.97)');
+  fogCtx.fillStyle=fogGradient;fogCtx.fillRect(0,0,2048,2048);
+  this.textures.addCanvas('dungeon-vision',fogCanvas);
+  this.dungeonVision=this.add.image(0,0,'dungeon-vision').setOrigin(.5).setScrollFactor(0).setDepth(50).setVisible(false);
+
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
@@ -651,13 +664,18 @@ class Meadow extends Phaser.Scene{
     riverBand(y1,y2,152,0x69866b);
     riverBand(y1,y2,144,0x3d8292);
    }
-   // Naturalne zaokrąglenie końca rzeki; warstwy wypełniane od brzegu do środka.
-   // Końcowy łuk jest rysowany raz, a nie na każdym odcinku.
-   for(const endY of [8100,11700]){
+   // Półkoliste, a nie pełne okrągłe zakończenia rzeki.
+   // Łuk leży tylko POZA ostatnim przekrojem rzeki.
+   for(const [endY,direction] of [[8100,-1],[11700,1]]){
     const rx=this.riverX(endY)+5*Math.sin(endY/91)+3*Math.sin(endY/37);
-    if(rx+160<ox||rx-160>ox+CHUNK||endY+165<oy||endY-165>oy+CHUNK)continue;
+    if(rx+165<ox||rx-165>ox+CHUNK||endY+165<oy||endY-165>oy+CHUNK)continue;
     for(const [radius,color] of [[159,0x394f3b],[152,0x69866b],[144,0x3d8292]]){
-     g.fillStyle(color,1).fillCircle(rx,endY,radius);
+     const points=[];
+     for(let j=0;j<=24;j++){
+      const theta=Math.PI*j/24;
+      points.push({x:rx+Math.cos(theta)*radius,y:endY+direction*Math.sin(theta)*radius});
+     }
+     g.fillStyle(color,1).fillPoints(points,true);
     }
    }
    for(let i=0;i<12;i++){
@@ -880,26 +898,22 @@ class Meadow extends Phaser.Scene{
     this.drawForestTree(g,o.x,o.y,o.radius,Math.floor(o.x+o.y));
    }
   }
-  // Stary Trakt: zwalony pień leży W POPRZEK poziomej drogi.
-  // Korona i korzenie są odsunięte od środka trasy, by czytelnie pokazać blokadę.
+  // Zwalenie drzewa przy samym wejściu: pień poziomo przecina drogę,
+  // gałęzie i korzenie kończą się przy zachodniej krawędzi świata.
   if(cx===0&&cy===Math.floor(11500/CHUNK)){
-   const x=112,y=11500;
-   g.fillStyle(0x254b29,.25).fillEllipse(x+8,y+10,205,155);
-   g.lineStyle(48,0x543922).lineBetween(x-74,y+82,x+71,y-81);
-   g.lineStyle(36,0x98653b).lineBetween(x-74,y+82,x+71,y-81);
-   g.lineStyle(4,0xc28b50,.7).lineBetween(x-66,y+74,x+74,y-75);
-   for(const [ax,ay,bx,by] of [[-58,62,-107,85],[-22,19,-78,-20],[40,-45,91,-110]]){
-    g.lineStyle(11,0x65432a).lineBetween(x+ax,y+ay,x+bx,y+by);
-    g.lineStyle(5,0x9b7044).lineBetween(x+ax,y+ay,x+bx,y+by);
+   const x=76,y=11500;
+   g.fillStyle(0x253b23,.22).fillEllipse(x+6,y+12,170,140);
+   g.lineStyle(51,0x543923).lineBetween(x-12,y-91,x+18,y+91);
+   g.lineStyle(39,0x99683e).lineBetween(x-12,y-91,x+18,y+91);
+   g.lineStyle(4,0xc18a51,.6).lineBetween(x-5,y-81,x+25,y+79);
+   for(const [x1,y1,x2,y2] of [[-10,-66,-56,-107],[9,29,62,12],[17,71,55,113]]){
+    g.lineStyle(12,0x64432c).lineBetween(x+x1,y+y1,x+x2,y+y2);
+    g.lineStyle(6,0x9a7044).lineBetween(x+x1,y+y1,x+x2,y+y2);
    }
-   for(const [dx,dy,r] of [[-84,85,27],[-107,52,24],[73,-88,30],[97,-111,24]]){
-    g.fillStyle(0x1f4a2a).fillCircle(x+dx+3,y+dy+4,r+3);
-    g.fillStyle(0x4f963c).fillCircle(x+dx,y+dy,r);
-    g.fillStyle(0x86b850,.7).fillEllipse(x+dx-8,y+dy-8,r*.85,r*.42);
-   }
-   for(const [dx,dy] of [[-44,-99],[86,72],[-100,-29]]){
-    g.fillStyle(0x557d3b).fillEllipse(x+dx,y+dy,25,10);
-    g.fillStyle(0xfff3d7).fillCircle(x+dx+3,y+dy-4,3);
+   for(const [dx,dy,rr] of [[-24,-105,30],[-51,-113,24],[51,14,25],[49,108,28]]){
+    g.fillStyle(0x21482a).fillCircle(x+dx+3,y+dy+5,rr+3);
+    g.fillStyle(0x4d963f).fillCircle(x+dx,y+dy,rr);
+    g.fillStyle(0x80b451,.7).fillEllipse(x+dx-8,y+dy-8,rr*.8,rr*.4);
    }
   }
   const textureKey='terrain-'+key;
@@ -1202,6 +1216,12 @@ class Meadow extends Phaser.Scene{
   const mx=dashing?this.dashDirection.x:dx,my=dashing?this.dashDirection.y:dy;
   const speed=dashing?780:220*this.moveMultiplier;
   this.moveAround(this.player,mx,my,dt,speed,16);
+  // Ograniczona widoczność działa tylko wewnątrz lochów.
+  const inDungeon=this.player.x>=DUNGEON.left&&this.player.x<DUNGEON.right&&this.player.y>=DUNGEON.top&&this.player.y<DUNGEON.bottom;
+  this.dungeonVision.setVisible(inDungeon);
+  if(inDungeon){
+   this.dungeonVision.setPosition(this.player.x-this.cameras.main.scrollX,this.player.y-this.cameras.main.scrollY);
+  }
   const currentRegion=regionAt(this.player.x,this.player.y);
   if(currentRegion.id<=6)this.highestRegion=Math.max(this.highestRegion,currentRegion.id);
   // Zmiana chunków potrzebna tylko po przesunięciu kamery do innego obszaru.
