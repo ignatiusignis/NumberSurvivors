@@ -117,3 +117,23 @@ p{margin:0;font-size:13px}
 body.touch-mode #keyboard-tools{display:none}
 body.touch-mode #touch-controls{display:block}
 body:not(.touch-mode) #touch-controls{display:none!important}
+
+/* 0.4.5: pauza u góry po prawej, dzielniki w jednym rzędzie od lewej,
+   unik na dole po lewej, joystick obok niego. */
+body.touch-mode #touch-controls{display:block!important}
+body:not(.touch-mode) #touch-controls{display:none!important}
+#touch-controls[hidden]{display:none!important}
+.touch-actions{position:static;display:contents}
+#touch-pause{position:absolute;top:14px;right:16px;bottom:auto;margin:0;min-height:52px;min-width:105px;font-size:17px!important;z-index:2}
+#touch-primes{position:absolute;top:76px;left:16px;right:auto;bottom:auto;display:flex;flex-wrap:nowrap;gap:9px;pointer-events:auto}
+#touch-primes button{min-width:54px;min-height:58px;padding:7px;font-size:21px!important;flex:none}
+#touch-dash{position:absolute;left:16px;bottom:24px;right:auto;width:115px;min-height:96px;font-size:22px!important}
+#touch-stick{left:156px;bottom:24px;width:156px;height:156px}
+#touch-resume,#touch-upgrades{display:none!important}
+@media(max-width:700px){
+ #touch-pause{top:8px;right:8px;min-height:40px;min-width:80px;font-size:13px!important}
+ #touch-primes{top:70px;left:8px;gap:4px;max-width:calc(100% - 16px)}
+ #touch-primes button{min-width:0;width:clamp(31px,10.2vw,46px);min-height:44px;font-size:16px!important;padding:4px}
+ #touch-dash{left:8px;bottom:12px;width:85px;min-height:72px;font-size:17px!important}
+ #touch-stick{left:110px;bottom:12px;width:112px;height:112px}
+}
