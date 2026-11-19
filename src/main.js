@@ -1,4 +1,4 @@
-// Number Survivors 0.7.10 — naturalna bariera leśna pod zamkiem i lochami
+// Number Survivors 0.8.0 — menu główne, opcje i instrukcja
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -64,6 +64,45 @@ class Meadow extends Phaser.Scene{
   this.cameras.main.setBackgroundColor('#79b65d');
   this.terrainChunks=new Map();this.obstacleChunks=new Map();
   this.physicalKeys=new Set();
+  this.menuOpen=true;
+  this.menu=document.getElementById('main-menu');
+  this.menuHelp=document.getElementById('menu-help-panel');
+  this.menuOptions=document.getElementById('menu-options-panel');
+  this.menuBack=document.getElementById('menu-back');
+  const openMenuPanel=which=>{
+   this.menuHelp.hidden=which!=='help';this.menuOptions.hidden=which!=='options';
+   document.querySelector('.menu-buttons').hidden=!!which;
+   this.menuBack.hidden=!which;
+   const optionsPanel=document.getElementById('options-panel');
+   if(which==='options'){document.getElementById('menu-options-slot').append(optionsPanel);optionsPanel.hidden=false;}
+   else {document.querySelector('.pause-modal').append(optionsPanel);optionsPanel.hidden=true;}
+  };
+  document.getElementById('menu-help').addEventListener('click',()=>openMenuPanel('help'));
+  document.getElementById('menu-options').addEventListener('click',()=>openMenuPanel('options'));
+  this.menuBack.addEventListener('click',()=>openMenuPanel(null));
+  document.getElementById('menu-new').addEventListener('click',()=>{
+   openMenuPanel(null);
+   if(this.manualPause){sessionStorage.setItem('ns-start-immediately','1');location.reload();return;}
+   this.menuOpen=false;this.menu.hidden=true;this.time.paused=false;
+   this.physicalKeys.clear();
+   if(this.controlMode==='keyboard')this.activateKeyboard();
+  });
+  document.getElementById('pause-menu').addEventListener('click',()=>{
+   if(!this.manualPause)return;
+   this.manualPause=false;
+   document.getElementById('pause-overlay').hidden=true;
+   this.menuOpen=true;this.menu.hidden=false;
+   this.time.paused=true;this.physicalKeys.clear();
+  });
+  const menuControl=document.getElementById('menu-control-mode');
+  menuControl.addEventListener('change',()=>{this.controlSelect.value=menuControl.value;this.setControlMode(menuControl.value);});
+  const syncMenuControl=()=>{menuControl.value=this.controlSelect.value;};
+  this.controlSelect.addEventListener('change',syncMenuControl);
+  syncMenuControl();
+  if(sessionStorage.getItem('ns-start-immediately')==='1'){
+   sessionStorage.removeItem('ns-start-immediately');this.menuOpen=false;this.menu.hidden=true;
+  }
+  this.time.paused=this.menuOpen;
   this.touchVector={x:0,y:0};this.touchDash=false;this.controlMode='keyboard';
   this.controlSelect=document.getElementById('control-mode');
   this.touchControls=document.getElementById('touch-controls');
@@ -124,6 +163,7 @@ class Meadow extends Phaser.Scene{
   this.onPhysicalKeyDown=event=>{
    const key=event.key.toLowerCase();
    const normalized=key==='arrowup'?'up':key==='arrowdown'?'down':key==='arrowleft'?'left':key==='arrowright'?'right':key===' '?'space':key;
+   if(this.menuOpen)return;
    if(['up','down','left','right','w','a','s','d','space','p','1','2','3','4','5','6','7','8'].includes(normalized)){
     event.preventDefault();event.stopPropagation();this.physicalKeys.add(normalized);
     this.keyboardLast.textContent='Odebrany klawisz: '+normalized;
@@ -1165,7 +1205,7 @@ class Meadow extends Phaser.Scene{
   const profiling=this.perfToggle.checked;
   const profileStart=profiling?performance.now():0;
   let terrainMs=0,enemyMs=0;
-  if(this.upgradeOpen||this.manualPause)return;
+  if(this.menuOpen||this.upgradeOpen||this.manualPause)return;
   this.clock+=Math.min(delta,50);
   const now=this.clock;
   if(this.lastSpawn<0){this.spawnWave(2);this.lastSpawn=now;}
@@ -1297,6 +1337,7 @@ class Meadow extends Phaser.Scene{
   }
  }
  togglePause(){
+  if(this.menuOpen)return;
   this.manualPause=!this.manualPause;
   this.time.paused=this.manualPause;
   const overlay=document.getElementById('pause-overlay');
