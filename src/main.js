@@ -1,4 +1,4 @@
-// Number Survivors 0.4.3 — czytelne przyciski dotykowe bez dolnego paska
+// Number Survivors 0.4.4 — rozłączne interfejsy i ciągła leśna granica zamku
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -116,7 +116,7 @@ class Meadow extends Phaser.Scene{
   window.addEventListener('keyup',this.onPhysicalKeyUp,true);
   window.addEventListener('blur',this.onKeyboardBlur);
   const gameHost=document.getElementById('game');gameHost.tabIndex=0;
-  gameHost.addEventListener('pointerdown',event=>{if(event.target.tagName==='CANVAS'&&event.target!==document.getElementById('world-minimap'))this.activateKeyboard();});
+  gameHost.addEventListener('pointerdown',event=>{if(this.controlMode==='keyboard'&&event.target.tagName==='CANVAS')this.activateKeyboard();});
   this.updateKeyboardStatus('Dotknij Aktywuj klawiaturę');
   const minimap=document.getElementById('world-minimap');
   minimap.addEventListener('click',event=>this.teleportFromMap(event));
@@ -160,6 +160,8 @@ class Meadow extends Phaser.Scene{
  }
  setControlMode(mode){
   this.controlMode=mode;this.touchControls.hidden=mode!=='touch';
+  document.body.classList.toggle('touch-mode',mode==='touch');
+  if(mode==='touch')this.keyboardCapture.blur();
   if(this.bottomPanel){
    const show=mode!=='touch';
    this.bottomPanel.setVisible(show);this.dashBox.setVisible(show);this.dashLabel.setVisible(show);this.dashHint.setVisible(show);
@@ -205,7 +207,7 @@ class Meadow extends Phaser.Scene{
   const castleOuter=x1>CASTLE.left&&x0<CASTLE.right&&y1>CASTLE.top&&y0<CASTLE.bottom;
   const dungeonOuter=x1>DUNGEON.left&&x0<DUNGEON.right&&y1>DUNGEON.top&&y0<DUNGEON.bottom;
   if(castleOuter){
-   // Brama południowa i przejście do lochów na wschodzie.
+   // Jedyna zachodnia brama do zamku i przejście do lochów na wschodzie.
    // Jedyna brama zewnętrzna prowadzi od pustkowi, po zachodniej stronie.
    if(x0<CASTLE.left+75&&x1>CASTLE.left&&y1>CASTLE.top&&y0<CASTLE.bottom&&Math.abs(y-2350)>210)return true;
    if(y0<CASTLE.top+75&&y1>CASTLE.top)return true;
@@ -252,7 +254,14 @@ class Meadow extends Phaser.Scene{
  riverAt(x,y,radius=0){return y>8100&&y<11700&&Math.abs(x-this.riverX(y))<145+radius&&roadNearest(x,y).distance>100-radius;}
  // Zwarty pas leśny ma szerokie obejście na południu.
  forestWallAt(x,y,radius=0){return x>4200&&x<7900&&Math.abs(y-(7400+Math.sin(x/650+REGION_SEED)*115))<165+radius&&roadNearest(x,y).distance>105-radius;}
- barrierAt(x,y,radius=0){return this.riverAt(x,y,radius)||this.forestWallAt(x,y,radius);}
+ // Ciągła ściana lasu od zachodniej do wschodniej krawędzi mapy.
+ // Jedyna przerwa to przełęcz na szlaku prowadzącym przez region 6.
+ castleForestAt(x,y,radius=0){
+  const wallY=4070+Math.sin(x/820)*65;
+  const gateX=roadNearest(x,wallY).distance<240;
+  return Math.abs(y-wallY)<175+radius&&!gateX;
+ }
+ barrierAt(x,y,radius=0){return this.riverAt(x,y,radius)||this.forestWallAt(x,y,radius)||this.castleForestAt(x,y,radius);}
  obstaclesFor(cx,cy){
   const key=cx+','+cy;
   if(this.obstacleChunks.has(key))return this.obstacleChunks.get(key);
@@ -374,6 +383,18 @@ class Meadow extends Phaser.Scene{
     for(let j=0;j<5;j++)g.fillStyle(j%2?0x275a30:0x356e35).fillCircle(xx+16,fy-145+j*70,29);
    }
   }
+  // Mur lasu oddziela północną część świata od pozostałych regionów.
+  // Ta sama funkcja wyznacza grafikę i kolizję.
+  for(let xx=ox;xx<ox+CHUNK;xx+=24){
+   const wallY=4070+Math.sin((xx+12)/820)*65;
+   if(wallY+190<oy||wallY-190>oy+CHUNK)continue;
+   for(let yy=Math.max(oy,Math.floor((wallY-190)/24)*24);yy<Math.min(oy+CHUNK,wallY+190);yy+=24){
+    if(this.castleForestAt(xx+12,yy+12,10)){
+     g.fillStyle(0x173d24).fillCircle(xx+12,yy+12,22);
+     g.fillStyle(0x2b6835).fillCircle(xx+7,yy+5,15);
+    }
+   }
+  }
   // Twarde granice biomów poza szerokimi bramami w pobliżu drogi.
   for(let yy=oy;yy<oy+CHUNK;yy+=24)for(let xx=ox;xx<ox+CHUNK;xx+=24){
    if(this.regionBoundaryAt(xx+12,yy+12,12)){
@@ -468,6 +489,7 @@ class Meadow extends Phaser.Scene{
   ctx.fillStyle='#327f9b';ctx.strokeStyle='#a5d6df';ctx.lineWidth=1;
   for(let y=8100;y<11700;y+=35){const x=this.riverX(y);ctx.fillRect((x-145)/WORLD*w,y/WORLD*h,290/WORLD*w,36/WORLD*h);}
   ctx.fillStyle='#173f24';for(let x=4200;x<7900;x+=35){const y=7400+Math.sin(x/650+REGION_SEED)*115;ctx.fillRect(x/WORLD*w,(y-165)/WORLD*h,36/WORLD*w,330/WORLD*h);}
+  for(let x=0;x<WORLD;x+=24){const y=4070+Math.sin(x/820)*65;if(this.castleForestAt(x,y,0))ctx.fillRect(x/WORLD*w,(y-175)/WORLD*h,25/WORLD*w,350/WORLD*h);}
   ctx.fillStyle='#777983';ctx.fillRect(CASTLE.left/WORLD*w,CASTLE.top/WORLD*h,(CASTLE.right-CASTLE.left)/WORLD*w,(CASTLE.bottom-CASTLE.top)/WORLD*h);
   ctx.fillStyle='#383943';ctx.fillRect(DUNGEON.left/WORLD*w,DUNGEON.top/WORLD*h,(DUNGEON.right-DUNGEON.left)/WORLD*w,(DUNGEON.bottom-DUNGEON.top)/WORLD*h);
   ctx.strokeStyle='#c6c9d0';ctx.lineWidth=2;ctx.strokeRect(CASTLE.left/WORLD*w,CASTLE.top/WORLD*h,(CASTLE.right-CASTLE.left)/WORLD*w,(CASTLE.bottom-CASTLE.top)/WORLD*h);
