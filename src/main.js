@@ -1,4 +1,4 @@
-// Number Survivors 0.5.4 — diagnostyka wydajności silnika
+// Number Survivors 0.6.0 — pierwsza odsłona grafiki cartoon: zielone łąki
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -386,6 +386,37 @@ class Meadow extends Phaser.Scene{
    if(this.textures.exists(textureKey))this.textures.remove(textureKey);
   }
  }
+ drawMeadowDecoration(g,x,y,variant,scale=1){
+  // Elementy rysunkowe: miękkie cienie, ciemny kontur, jasne akcenty.
+  const s=scale;
+  if(variant===0){ // mały kępka trawy
+   g.fillStyle(0x376f32,.22).fillEllipse(x,y+5*s,28*s,9*s);
+   g.lineStyle(3*s,0x315c2d,1);
+   for(let k=-1;k<=1;k++){g.lineBetween(x+k*7*s,y+4*s,x+(k*9+3)*s,y-(13+Math.abs(k)*4)*s);}
+   g.lineStyle(2*s,0x7cbd45,1).lineBetween(x,y+3*s,x+3*s,y-15*s);
+  }else if(variant===1){ // stokrotki
+   g.fillStyle(0x38672b,.18).fillEllipse(x,y+5*s,31*s,8*s);
+   for(const [dx,dy] of [[-9,1],[8,-5],[14,6]]){
+    const fx=x+dx*s,fy=y+dy*s;
+    g.lineStyle(2*s,0x3c873b).lineBetween(fx,fy+8*s,fx,fy);
+    for(let p=0;p<5;p++){const a=p*Math.PI*2/5;g.fillStyle(0xfff8e5).fillCircle(fx+Math.cos(a)*4*s,fy+Math.sin(a)*4*s,3*s);}
+    g.fillStyle(0xf5bf3b).fillCircle(fx,fy,3.2*s);
+   }
+  }else if(variant===2){ // zaokrąglony kamień
+   g.fillStyle(0x254b29,.25).fillEllipse(x+4*s,y+10*s,43*s,13*s);
+   g.fillStyle(0x53634e).fillEllipse(x,y+2*s,39*s,26*s);
+   g.fillStyle(0x8c9b82).fillEllipse(x-3*s,y-3*s,33*s,23*s);
+   g.fillStyle(0xb6c1a4,.7).fillEllipse(x-9*s,y-8*s,13*s,5*s);
+  }else{ // niski krzew, dekoracyjny (nie blokuje ruchu)
+   g.fillStyle(0x244b2a,.2).fillEllipse(x,y+9*s,45*s,14*s);
+   g.fillStyle(0x2a5930).fillEllipse(x,y+3*s,39*s,24*s);
+   for(const [dx,dy,r] of [[-12,0,12],[0,-8,15],[12,1,11]]){
+    g.fillStyle(0x244c2a).fillCircle(x+dx*s,y+dy*s,(r+2)*s);
+    g.fillStyle(0x65aa3c).fillCircle(x+(dx-2)*s,y+(dy-3)*s,r*s);
+   }
+   g.fillStyle(0x9bd15c,.75).fillCircle(x-9*s,y-11*s,4*s);
+  }
+ }
  buildChunk(cx,cy,key){
   const g=this.make.graphics({x:0,y:0},false);
   const ox=cx*CHUNK,oy=cy*CHUNK;
@@ -417,6 +448,17 @@ class Meadow extends Phaser.Scene{
    }else{
     g.fillStyle(kind<.25?0x9acb6c:0x5b994e,.62).fillEllipse(x,y,7+kind*18,3+kind*6);
    }
+  }
+  // Nowa oprawa biomu 1: dekoracje tylko na łące, poza drogą i barierami.
+  // Stałe ziarno zapewnia ten sam układ po teleportacji i bez kosztu animowania.
+  for(let i=0;i<24;i++){
+   const x=ox+28+hash(cx,cy,1100+i*5)*(CHUNK-56);
+   const y=oy+28+hash(cx,cy,1101+i*5)*(CHUNK-56);
+   if(regionAt(x,y).id!==1||biomeWeights(x,y).meadow<.82)continue;
+   if(roadNearest(x,y).distance<115||this.barrierAt(x,y,50)||this.regionBoundaryAt(x,y,35))continue;
+   const variant=Math.floor(hash(cx,cy,1102+i*5)*4);
+   const scale=.7+hash(cx,cy,1103+i*5)*.55;
+   this.drawMeadowDecoration(g,x,y,variant,scale);
   }
   // Ciągłe bariery: rzeka z przejściem na północy oraz gęsty las z obejściem na południu.
   for(let yy=oy;yy<oy+CHUNK;yy+=32){
