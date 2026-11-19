@@ -1,4 +1,4 @@
-// Number Survivors 0.9.3 — nowe PNG bez automatycznej ingerencji w alfa
+// Number Survivors 0.9.4 — diagnostyka niewidzialnych granic
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -137,6 +137,15 @@ class Meadow extends Phaser.Scene{
   this.perfToggle.checked=localStorage.getItem('ns-perf')==='1';
   this.perfPanel.hidden=!this.perfToggle.checked;
   this.perfToggle.addEventListener('change',()=>{this.perfPanel.hidden=!this.perfToggle.checked;localStorage.setItem('ns-perf',this.perfToggle.checked?'1':'0');});
+  // Diagnostyka granic: włączana wyłącznie na żądanie w Opcjach.
+  this.collisionToggle=document.getElementById('show-collision-borders');
+  this.collisionToggle.checked=false;
+  this.collisionToggle.addEventListener('change',()=>{
+   this.collisionDebug=this.collisionToggle.checked;
+   this.collisionGraphics.setVisible(this.collisionDebug);
+   this.collisionReadout.setVisible(this.collisionDebug);
+   if(this.collisionDebug)this.drawCollisionDebug(true);
+  });
   this.perfLast=0;
   this.perfSamples={count:0,total:0,terrain:0,enemies:0,max:0};
   const joystick=(event)=>{
@@ -204,6 +213,10 @@ class Meadow extends Phaser.Scene{
    document.getElementById('teleport-status').textContent='Przeniesiono w pobliże teczki. Wznów grę i podejdź do niej.';
   });
   this.player=this.add.container(420,11500).setDepth(10);
+  this.collisionDebug=false;
+  this.collisionGraphics=this.add.graphics().setDepth(85).setVisible(false);
+  this.collisionReadout=this.add.text(16,115,'',{fontFamily:'Arial',fontSize:'15px',fontStyle:'bold',color:'#ffffff',backgroundColor:'#4b1820',padding:{x:8,y:5}}).setScrollFactor(0).setDepth(120).setVisible(false);
+  this.collisionDrawTime=0;
   // Cel wyprawy: teczka z czerwonymi paskami na końcu lochów.
   this.briefcaseX=10200;this.briefcaseY=2300;
   const caseArt=this.add.graphics().setDepth(8);
@@ -1327,7 +1340,29 @@ class Meadow extends Phaser.Scene{
    enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);
   }
  }
+ drawCollisionDebug(force=false){
+  if(!this.collisionDebug)return;
+  const now=performance.now();if(!force&&now-this.collisionDrawTime<250)return;
+  this.collisionDrawTime=now;
+  const px=this.player.x,py=this.player.y,g=this.collisionGraphics;
+  g.clear();
+  // Czerwone punkty: kolizja granicy regionu. Zielone: sąsiednie pola przejścia.
+  // Próbkujemy tylko widoczne sąsiedztwo bohatera, nie cały świat.
+  const step=26,range=390;
+  for(let y=Math.floor((py-range)/step)*step;y<=py+range;y+=step){
+   for(let x=Math.floor((px-range)/step)*step;x<=px+range;x+=step){
+    if(x<0||y<0||x>WORLD||y>WORLD)continue;
+    const blocked=this.regionBoundaryAt(x,y,16);
+    if(blocked){g.fillStyle(0xff3949,.85);g.fillCircle(x,y,8);}
+    else if(this.regionBoundaryAt(x+step,y,16)||this.regionBoundaryAt(x-step,y,16)||this.regionBoundaryAt(x,y+step,16)||this.regionBoundaryAt(x,y-step,16)){
+     g.fillStyle(0x55ef77,.8);g.fillCircle(x,y,5);
+    }
+   }
+  }
+  this.collisionReadout.setText('X: '+Math.round(px)+'  Y: '+Math.round(py)+'  | Region: '+regionAt(px,py).id+'  | Granica: '+(this.regionBoundaryAt(px,py,16)?'TAK':'NIE'));
+ }
  update(frameNow,delta){
+  if(this.collisionDebug)this.drawCollisionDebug();
   const profiling=this.perfToggle.checked;
   const profileStart=profiling?performance.now():0;
   let terrainMs=0,enemyMs=0;
