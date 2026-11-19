@@ -1,4 +1,4 @@
-// Number Survivors 0.7.7 — większe drzewo, granice, ceglane mury i pochodnie
+// Number Survivors 0.7.8 — przywrócenie drogi i poprawa pochodni
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -704,6 +704,31 @@ class Meadow extends Phaser.Scene{
     }
    }
   }
+  // Droga: przywrócona na całej mapie. Rysowanie odcinków i wspólnych
+  // okrągłych łączeń eliminuje szczeliny na zakrętach i granicach chunków.
+  // Przebieg i kolizje są oparte na niezmienionej tablicy ROAD.
+  for(const [width,edge] of [[132,true],[118,false]]){
+   for(let i=1;i<ROAD.length;i++){
+    const p=ROAD[i-1],q=ROAD[i];
+    if(Math.max(p.x,q.x)<ox-width||Math.min(p.x,q.x)>ox+CHUNK+width||Math.max(p.y,q.y)<oy-width||Math.min(p.y,q.y)>oy+CHUNK+width)continue;
+    const dx=q.x-p.x,dy=q.y-p.y,len=Math.hypot(dx,dy)||1;
+    const nx=-dy/len*width/2,ny=dx/len*width/2;
+    const biome=this.biomeAt((p.x+q.x)/2,(p.y+q.y)/2);
+    const palette=biome==='swamp'?[0x464a32,0x8b7953]:biome==='badlands'?[0x6a4536,0xaf795a]:biome==='forest'?[0x594b36,0x9b855f]:[0x71583a,0xb99a70];
+    g.fillStyle(palette[edge?0:1],1).fillPoints([
+     {x:p.x+nx,y:p.y+ny},{x:q.x+nx,y:q.y+ny},
+     {x:q.x-nx,y:q.y-ny},{x:p.x-nx,y:p.y-ny}
+    ],true);
+   }
+   // Łączniki są pełne i rysowane tylko na załamaniach trasy.
+   for(let i=1;i<ROAD.length-1;i++){
+    const p=ROAD[i];
+    if(p.x<ox-width||p.x>ox+CHUNK+width||p.y<oy-width||p.y>oy+CHUNK+width)continue;
+    const biome=this.biomeAt(p.x,p.y);
+    const palette=biome==='swamp'?[0x464a32,0x8b7953]:biome==='badlands'?[0x6a4536,0xaf795a]:biome==='forest'?[0x594b36,0x9b855f]:[0x71583a,0xb99a70];
+    g.fillStyle(palette[edge?0:1],1).fillCircle(p.x,p.y,width/2);
+   }
+  }
   // Twarde granice biomów poza szerokimi bramami w pobliżu drogi.
   // Granice: nieregularne, zachodzące na siebie krzewy, bez szeregów kół.
   // Kolizje i położenie przejść pozostają nietknięte.
@@ -771,7 +796,7 @@ class Meadow extends Phaser.Scene{
   }
   // Rysunkowe szczegóły architektury — statyczne, wypalane w teksturze.
   for(let i=0;i<12;i++){
-   const x=ox+hash(cx,cy,8100+i*3)*CHUNK,y=oy+hash(cx,cy,8101+i*3)*CHUNK;
+   const x=ox+48+hash(cx,cy,8100+i*3)*(CHUNK-96),y=oy+48+hash(cx,cy,8101+i*3)*(CHUNK-96);
    const kind=this.biomeAt(x,y);
    if(kind!=='castle'&&kind!=='dungeon'||this.structureBlocked(x,y,25))continue;
    if(kind==='castle'){
@@ -782,7 +807,7 @@ class Meadow extends Phaser.Scene{
     // Pochodnia i kamienie, bez animacji i nowych kolizji.
     if(i%3===0){
      // Pełna, symetryczna pochodnia — bez uciętej połowy.
-     g.fillStyle(0xe77e2f,.18).fillCircle(x,y-9,27);
+     g.fillStyle(0xe77e2f,.10).fillCircle(x,y-9,20);
      g.fillStyle(0x6e513b).fillRoundedRect(x-5,y-2,10,22,3);
      g.fillStyle(0xb08a52).fillRoundedRect(x-7,y-3,14,6,2);
      g.fillStyle(0xf28b34).fillEllipse(x,y-13,16,23);
