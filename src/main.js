@@ -402,6 +402,12 @@ class Meadow extends Phaser.Scene{
   ctx.strokeStyle='#c6c9d0';ctx.lineWidth=2;ctx.strokeRect(CASTLE.left/WORLD*w,CASTLE.top/WORLD*h,(CASTLE.right-CASTLE.left)/WORLD*w,(CASTLE.bottom-CASTLE.top)/WORLD*h);
   ctx.strokeStyle='#b7b9c6';for(const y of [1500,2300,3100]){ctx.beginPath();ctx.moveTo(DUNGEON.left/WORLD*w,y/WORLD*h);ctx.lineTo(DUNGEON.right/WORLD*w,y/WORLD*h);ctx.stroke();}
   for(const x of [10850,11600,12200]){ctx.beginPath();ctx.moveTo(x/WORLD*w,DUNGEON.top/WORLD*h);ctx.lineTo(x/WORLD*w,DUNGEON.bottom/WORLD*h);ctx.stroke();}
+  // Na minimapie widać granice, a przerwy w nich wskazują szerokie przejścia.
+  ctx.fillStyle='#182b24';
+  for(let py=0;py<h;py+=2)for(let px=0;px<w;px+=2){
+   const x=(px+.5)/w*WORLD,y=(py+.5)/h*WORLD;
+   if(this.regionBoundaryAt(x,y,28))ctx.fillRect(px,py,2,2);
+  }
   // Widoczny szlak pomaga odnaleźć kolejne regiony.
   ctx.beginPath();ctx.moveTo(ROAD[0].x/WORLD*w,ROAD[0].y/WORLD*h);
   for(let i=1;i<ROAD.length;i++)ctx.lineTo(ROAD[i].x/WORLD*w,ROAD[i].y/WORLD*h);
