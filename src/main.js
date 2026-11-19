@@ -1,4 +1,4 @@
-// Number Survivors 0.6.5 — poprawa rzeki i przejść kolorów na drodze
+// Number Survivors 0.7.0 — Stary Trakt: nowe wejście do świata
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -16,7 +16,7 @@ const REGIONS=[
 const REGION_SEED=48371; // Stały świat — powtarzalny układ do testowania
 // Kolejność punktów: łąka → mokradła → zarośla → las → równiny → pustkowia → zamek.
 // Delikatne przesunięcia punktów zmieniają trasę przy każdej nowej rozgrywce.
-const ROAD_ANCHORS=[[5850,9750],[7100,10100],[8550,9850],[9800,10050],[10800,8900],[10400,7200],[9900,5300],[8350,5000],[6800,5500],[5700,5700],[4100,6100],[2300,5850],[2000,4300],[2500,2250],[4300,2900],[5300,2500],[5950,2350],[6250,2350],[6650,2350]];
+const ROAD_ANCHORS=[[0,9440],[600,9440],[2400,9500],[4100,9600],[5850,9750],[7100,10100],[8550,9850],[9800,10050],[10800,8900],[10400,7200],[9900,5300],[8350,5000],[6800,5500],[5700,5700],[4100,6100],[2300,5850],[2000,4300],[2500,2250],[4300,2900],[5300,2500],[5950,2350],[6250,2350],[6650,2350]];
 const ROAD=ROAD_ANCHORS.map(([x,y])=>({x,y}));
 const roadNearest=(x,y)=>{
  let best=Infinity,segment=0,t=0;
@@ -141,7 +141,7 @@ class Meadow extends Phaser.Scene{
   this.updateKeyboardStatus('Dotknij Aktywuj klawiaturę');
   const minimap=document.getElementById('world-minimap');
   minimap.addEventListener('pointerup',event=>{event.stopPropagation();this.teleportFromMap(event);});
-  this.player=this.add.container(5850,9750).setDepth(10);
+  this.player=this.add.container(380,9440).setDepth(10);
   this.player.add([this.add.ellipse(0,7,29,14,0x314b2c),this.add.circle(0,-2,16,0x315a39),this.add.triangle(0,-12,-17,5,0,-24,17,5,0x467d45),this.add.circle(0,-11,7,0xf4c69c),this.add.line(0,0,12,-2,21,12,0xb77d46).setLineWidth(3)]);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
@@ -306,7 +306,7 @@ class Meadow extends Phaser.Scene{
    if(kind==='forest'&&roll>.82)continue;
    const radius=kind==='swamp'?65+hash(cx,cy,i*11+104)*55:kind==='thicket'?27+hash(cx,cy,i*11+104)*21:24+hash(cx,cy,i*11+104)*18;
    // Zachowaj wolną przestrzeń startową i szerokie korytarze między obiektami.
-   if(Math.hypot(x-5850,y-9750)<450||roadNearest(x,y).distance<radius+100)continue;
+   if(Math.hypot(x-380,y-9440)<450||roadNearest(x,y).distance<radius+100)continue;
    if(obstacles.some(o=>Math.hypot(x-o.x,y-o.y)<radius+o.radius+95))continue;
    obstacles.push({x,y,radius,kind,shape:kind==='swamp'&&roll<.22?'channel':'round'});
   }
@@ -660,6 +660,29 @@ class Meadow extends Phaser.Scene{
     g.fillStyle(0x493728).fillRect(o.x-9,o.y-8,18,29);
     g.fillStyle(0x1e4a2a).fillCircle(o.x,o.y-12,o.radius+9);
     g.fillStyle(0x316d35).fillCircle(o.x-9,o.y-18,o.radius*.7);
+   }
+  }
+  // Stary Trakt — powalone drzewo przy zachodniej granicy świata.
+  // Rysunek jest częścią tekstury; granica mapy nadal odpowiada za blokadę.
+  if(cx===0&&cy===Math.floor(9440/CHUNK)){
+   const x=105,y=9440;
+   g.fillStyle(0x2a4826,.24).fillEllipse(x+14,y+23,130,180);
+   // Korzenie i masywny pień leżący w poprzek drogi.
+   g.lineStyle(55,0x543924,1).lineBetween(x-19,y-90,x+24,y+94);
+   g.lineStyle(39,0x90613a,1).lineBetween(x-19,y-90,x+24,y+94);
+   g.lineStyle(5,0xb88954,.7).lineBetween(x-13,y-80,x+30,y+75);
+   for(const [dx,dy,ex,ey] of [[-18,-75,-68,-120],[10,27,73,2],[22,73,72,120]]){
+    g.lineStyle(13,0x644329,1).lineBetween(x+dx,y+dy,x+ex,y+ey);
+    g.lineStyle(7,0x9b6c42,1).lineBetween(x+dx,y+dy,x+ex,y+ey);
+   }
+   for(const [dx,dy,rr] of [[-56,-113,28],[-31,-123,30],[57,-1,27],[72,114,28]]){
+    g.fillStyle(0x214e2b).fillCircle(x+dx+4,y+dy+5,rr+4);
+    g.fillStyle(0x4e973d).fillCircle(x+dx,y+dy,rr);
+    g.fillStyle(0x78b84d,.8).fillCircle(x+dx-8,y+dy-9,rr*.42);
+   }
+   for(const [dx,dy] of [[-55,40],[56,74],[-34,125]]){
+    g.fillStyle(0x617e3b).fillEllipse(x+dx,y+dy,32,12);
+    g.lineStyle(3,0x3d7034).lineBetween(x+dx,y+dy,x+dx+5,y+dy-19);
    }
   }
   const textureKey='terrain-'+key;
