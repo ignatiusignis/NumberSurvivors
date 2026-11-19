@@ -1,10 +1,10 @@
-// Number Survivors 0.4.5 — naprawa trybów sterowania, teleportacji i leśnej ściany
+// Number Survivors 0.5.0 — osobny zamek, opcje i adaptacyjny interfejs
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
 const hash=(x,y,k=0)=>{let n=Math.imul(x+1297,374761393)^Math.imul(y+7919,668265263)^Math.imul(k+31,2246822519);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967296;};
-const CASTLE={left:8200,right:10400,top:900,bottom:3700};
-const DUNGEON={left:10400,right:12500,top:900,bottom:3700};
+const CASTLE={left:6200,right:8400,top:900,bottom:3700};
+const DUNGEON={left:8400,right:10500,top:900,bottom:3700};
 const REGIONS=[
  {id:6,name:'Czerwone pustkowia',x:2500,y:2250,color:[147,69,59],kind:'badlands'},
  {id:5,name:'Suche równiny',x:2300,y:5850,color:[168,125,82],kind:'plains'},
@@ -16,7 +16,7 @@ const REGIONS=[
 const REGION_SEED=48371; // Stały świat — powtarzalny układ do testowania
 // Kolejność punktów: łąka → mokradła → zarośla → las → równiny → pustkowia → zamek.
 // Delikatne przesunięcia punktów zmieniają trasę przy każdej nowej rozgrywce.
-const ROAD_ANCHORS=[[5850,9750],[7100,10100],[8550,9850],[9800,10050],[10800,8900],[10400,7200],[9900,5300],[8350,5000],[6800,5500],[5700,5700],[4100,6100],[2300,5850],[2000,4300],[2500,2250],[4300,2900],[6100,3500],[7550,2800],[8150,2350],[8550,2350]];
+const ROAD_ANCHORS=[[5850,9750],[7100,10100],[8550,9850],[9800,10050],[10800,8900],[10400,7200],[9900,5300],[8350,5000],[6800,5500],[5700,5700],[4100,6100],[2300,5850],[2000,4300],[2500,2250],[4300,2900],[5300,2500],[5950,2350],[6250,2350],[6650,2350]];
 const ROAD=ROAD_ANCHORS.map(([x,y])=>({x,y}));
 const roadNearest=(x,y)=>{
  let best=Infinity,segment=0,t=0;
@@ -37,8 +37,11 @@ const regionScores=(x,y)=>{
  return scores;
 };
 const regionAt=(x,y)=>{
+ // Północna strefa za leśną ścianą należy do pustkowi (region 6),
+ // nie do zielonych biomów 3 i 4. Zamek ma własny, osobny obszar.
  if(x>=CASTLE.left&&x<CASTLE.right&&y>=CASTLE.top&&y<CASTLE.bottom)return {id:7,name:'Zamek',kind:'castle',color:[111,113,119]};
  if(x>=DUNGEON.left&&x<DUNGEON.right&&y>=DUNGEON.top&&y<DUNGEON.bottom)return {id:8,name:'Lochy',kind:'dungeon',color:[55,56,69]};
+ if(y<3900&&x<CASTLE.left)return REGIONS[0];
  return regionScores(x,y)[0].region;
 };
 const biomeWeights=(x,y)=>{
@@ -69,6 +72,17 @@ class Meadow extends Phaser.Scene{
   this.controlSelect.value=matchMedia('(pointer:coarse)').matches?'touch':'keyboard';
   this.setControlMode(this.controlSelect.value);
   this.controlSelect.addEventListener('change',()=>this.setControlMode(this.controlSelect.value));
+  const savedOpacity=Number(localStorage.getItem('ns-touch-opacity'));
+  this.touchOpacity=Number.isFinite(savedOpacity)&&savedOpacity>=.3&&savedOpacity<=1?savedOpacity:.8;
+  this.opacitySlider=document.getElementById('touch-opacity');
+  this.opacitySlider.value=String(Math.round(this.touchOpacity*100));
+  this.opacitySlider.addEventListener('input',()=>{this.touchOpacity=Number(this.opacitySlider.value)/100;this.applyTouchSettings();localStorage.setItem('ns-touch-opacity',String(this.touchOpacity));});
+  this.touchSize=document.getElementById('touch-size');
+  this.touchSize.value=localStorage.getItem('ns-touch-size')||'normal';
+  this.touchSize.addEventListener('change',()=>{localStorage.setItem('ns-touch-size',this.touchSize.value);this.applyTouchSettings();});
+  document.getElementById('pause-options').addEventListener('click',()=>{document.getElementById('options-panel').hidden=false;});
+  document.getElementById('options-close').addEventListener('click',()=>{document.getElementById('options-panel').hidden=true;});
+  this.applyTouchSettings();
   const joystick=(event)=>{
    const rect=this.touchStick.getBoundingClientRect(),cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
    const dx=event.clientX-cx,dy=event.clientY-cy,len=Math.hypot(dx,dy),max=rect.width*.35;
@@ -158,10 +172,15 @@ class Meadow extends Phaser.Scene{
   this.lastSpawn=-1;
   this.updateTerrain();
  }
+ applyTouchSettings(){
+  this.touchControls.style.setProperty('--touch-opacity',String(this.touchOpacity));
+  this.touchControls.dataset.size=this.touchSize.value;
+ }
  setControlMode(mode){
   this.controlMode=mode;this.touchControls.hidden=mode!=='touch';
   document.body.classList.toggle('touch-mode',mode==='touch');
   if(mode==='touch'&&this.keyboardCapture)this.keyboardCapture.blur();
+  if(mode==='keyboard'&&this.keyboardCapture)this.activateKeyboard();
   if(this.bottomPanel){
    const show=mode!=='touch';
    this.bottomPanel.setVisible(show);this.dashBox.setVisible(show);this.dashLabel.setVisible(show);this.dashHint.setVisible(show);
@@ -853,6 +872,7 @@ class Meadow extends Phaser.Scene{
   this.time.paused=this.manualPause;
   const overlay=document.getElementById('pause-overlay');
   overlay.hidden=!this.manualPause;
+  document.getElementById('options-panel').hidden=true;
   if(this.manualPause){this.renderStats();this.renderLockMenu();this.drawMinimap();}
  }
  availableUpgrades(){
