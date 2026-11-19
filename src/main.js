@@ -1,4 +1,4 @@
-// Number Survivors 0.7.8 — przywrócenie drogi i poprawa pochodni
+// Number Survivors 0.7.9 — długie sztandary i naturalne granice lasu
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -740,6 +740,10 @@ class Meadow extends Phaser.Scene{
     const x=xx+22+(hash(sx,sy,6101)-.5)*18,y=yy+22+(hash(sx,sy,6102)-.5)*16;
     const size=28+hash(sx,sy,6103)*12;
     if(kind==='forest'||kind==='thicket'||kind==='meadow'){
+     // Cień, pień i korzenie nadają granicy wygląd lasu zamiast szeregu kul.
+     g.fillStyle(0x132d20,.42).fillEllipse(x+8,y+size*.65,size*2.1,size*.85);
+     g.fillStyle(0x4b3423).fillRoundedRect(x-size*.13,y+size*.04,size*.28,size*.95,3);
+     g.lineStyle(3,0x765035,.8).lineBetween(x,y+size*.25,x-size*.13,y+size*.85);
      g.fillStyle(0x163a25).fillEllipse(x+4,y+10,size*2.5,size*1.9);
      for(let j=0;j<4;j++){
       const a=j*2.4+hash(sx,sy,6200+j);
@@ -771,11 +775,19 @@ class Meadow extends Phaser.Scene{
    g.fillStyle(0x75747b).fillCircle(x-5,y-9,29);
    g.fillStyle(0x42444c).fillCircle(x-5,y-9,16);
   }
-  // Zamkowe proporce są dekoracją dziedzińca, nie lochów.
-  for(const [x,y] of [[8700,1500],[10150,1500],[8700,3000],[10150,3000]]){
-   if(x<ox||x>=ox+CHUNK||y<oy||y>=oy+CHUNK)continue;
-   g.fillStyle(0x5b5b62).fillRoundedRect(x-14,y-16,28,38,4);
-   g.fillStyle(0xa14b45).fillPoints([{x:x-10,y:y-11},{x:x+10,y:y-11},{x:x+10,y:y+23},{x:x,y:y+14},{x:x-10,y:y+23}],true);
+  // Długie sztandary zawieszone na istniejących murach zamku.
+  // Dzielimy rysunek na fragmenty mapy, aby nie ucinać dekoracji na granicach chunków.
+  for(const [x,y] of [[CASTLE.left+28,1350],[CASTLE.left+28,3150],[CASTLE.right-30,1350],[CASTLE.right-30,3150]]){
+   const length=360,width=32;
+   if(x+width<ox||x-width>ox+CHUNK||y+length<oy||y-28>oy+CHUNK)continue;
+   g.fillStyle(0x24242c,.45).fillRect(x+6,y+4,width,length);
+   g.fillStyle(0x8e3736).fillPoints([{x:x-width/2,y:y},{x:x+width/2,y:y},{x:x+width/2,y:y+length},{x:x,y:y+length-27},{x:x-width/2,y:y+length}],true);
+   g.lineStyle(3,0xb68a49).lineBetween(x-width/2+3,y+5,x-width/2+3,y+length-10);
+   g.lineStyle(3,0xb68a49).lineBetween(x+width/2-3,y+5,x+width/2-3,y+length-10);
+   g.fillStyle(0xd4a956).fillCircle(x,y+65,10);
+   g.fillStyle(0x5b4b36).fillRoundedRect(x-width/2-7,y-9,width+14,9,3);
+   g.fillStyle(0xc59a58).fillCircle(x-width/2-7,y-5,5);
+   g.fillStyle(0xc59a58).fillCircle(x+width/2+7,y-5,5);
   }
   // Cegły na mijankę: co drugi rząd przesunięty o pół cegły.
   // Każda cegła rysowana tylko w miejscach istniejących ścian.
