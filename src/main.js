@@ -1,4 +1,4 @@
-// Number Survivors 0.9.7 — poprawa rozmiarów animowanych sprite'ów
+// Number Survivors 0.9.8 — szybszy start roju i bossów oraz więcej wrogów
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -1219,7 +1219,7 @@ class Meadow extends Phaser.Scene{
    label.setY(-size*1.95);
   }
   const view=this.add.container(x,y,[...parts,...(sprite?[sprite]:[]),label]).setDepth(7);
-  const enemy={n,x,y,size,view,label,body,sprite,boss:!!options.boss,swarm:!!options.swarm,hitPoints:options.hitPoints||0,armor:options.boss?10:0,baseColor:color,bornMinute:Math.floor((this.clock-this.startTime)/60000)};
+  const enemy={n,x,y,size,view,label,body,sprite,boss:!!options.boss,swarm:!!options.swarm,hitPoints:options.hitPoints||0,armor:options.boss?10:0,baseColor:color,bornMinute:Math.floor((this.clock-this.startTime)/60000),bornAt:this.clock};
   enemy.animPhase=hash(Math.floor(x),Math.floor(y),418)*Math.PI*2;
   enemy.hitUntil=0;
   this.enemies.push(enemy);
@@ -1448,15 +1448,15 @@ class Meadow extends Phaser.Scene{
   if(minute>=5&&minute<=25&&minute%5===0&&this.eventIndex<minute/5){this.eventIndex=minute/5;this.prepareEvent(minute);}
   if(this.special&&!this.special.active&&now>=this.warningUntil)this.beginEvent();
   const normalCount=this.enemies.filter(e=>!e.swarm&&!e.boss).length;
-  if(minute===0){if(now-this.lastSpawn>=10000&&normalCount<30){this.spawnWave(2);this.lastSpawn=now;}}
-  else if(now-this.lastSpawn>2500&&normalCount<Math.min(12+minute*2,45)){this.spawnWave(2);this.lastSpawn=now;}
+  if(minute===0){if(now-this.lastSpawn>=10000&&normalCount<45){this.spawnWave(3);this.lastSpawn=now;}}
+  else if(now-this.lastSpawn>2500&&normalCount<Math.min(18+minute*3,68)){this.spawnWave(3);this.lastSpawn=now;}
   const cam=this.cameras.main;const bound=cam.worldView;
   const enemyStart=profiling?performance.now():0;
   for(const enemy of [...this.enemies]){
    const distance=Math.hypot(this.player.x-enemy.x,this.player.y-enemy.y)||1;
    if(!enemy.swarm&&!enemy.boss&&enemy.bornMinute<minute&&(enemy.x<bound.left-400||enemy.x>bound.right+400||enemy.y<bound.top-300||enemy.y>bound.bottom+300)){enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);continue;}
    // Przeciwnik ściga gracza niezależnie od odległości i rozmiaru okna.
-   const enemySpeed=enemy.boss?38:55;
+   const enemySpeed=(enemy.boss?38:55)*((enemy.boss||enemy.swarm)&&now-enemy.bornAt<3000?2:1);
    this.steerEnemy(enemy,dt,enemySpeed);enemy.view.setPosition(enemy.x,enemy.y);
    if(enemy.sprite){
     const phase=now*.006+enemy.animPhase;
