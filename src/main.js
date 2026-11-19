@@ -86,6 +86,7 @@ class Meadow extends Phaser.Scene{
   dashButton.addEventListener('pointercancel',()=>this.touchDash=false);
   document.getElementById('touch-pause').addEventListener('click',()=>{if(!this.upgradeOpen)this.togglePause();});
   document.getElementById('touch-resume').addEventListener('click',()=>{if(this.manualPause)this.togglePause();});
+  document.getElementById('pause-resume').addEventListener('click',()=>{if(this.manualPause)this.togglePause();});
   this.touchPrimes=document.getElementById('touch-primes');
   for(let i=0;i<PRIMES.length;i++){
    const button=document.createElement('button');button.type='button';button.textContent=String(PRIMES[i]);button.addEventListener('click',()=>{if(this.upgradeOpen)this.chooseUpgrade(i);else if(!this.manualPause)this.selectPrime(PRIMES[i]);});this.touchPrimes.append(button);
