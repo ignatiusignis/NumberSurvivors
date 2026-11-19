@@ -1,4 +1,4 @@
-// Number Survivors 0.4.0 — stałe regiony, przejścia i obsługa klawiatury iPad
+// Number Survivors 0.4.1 — diagnostyka i aktywacja klawiatury iPad
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -61,23 +61,32 @@ class Meadow extends Phaser.Scene{
   this.cameras.main.setBackgroundColor('#79b65d');
   this.terrainChunks=new Map();this.obstacleChunks=new Map();
   this.physicalKeys=new Set();
+  this.keyboardCapture=document.getElementById('keyboard-capture');
+  this.keyboardStatus=document.getElementById('keyboard-status');
+  this.keyboardLast=document.getElementById('keyboard-last');
+  this.keyboardActivate=document.getElementById('keyboard-activate');
+  this.keyboardActivate.addEventListener('click',()=>this.activateKeyboard());
+  this.keyboardCapture.addEventListener('blur',()=>this.updateKeyboardStatus('Nieaktywna — dotknij Aktywuj klawiaturę'));
+  this.keyboardCapture.addEventListener('focus',()=>this.updateKeyboardStatus('Aktywna — sprawdź WASD lub strzałki'));
+  this.keyboardCapture.addEventListener('input',()=>{this.keyboardCapture.value='';});
   this.onPhysicalKeyDown=event=>{
    const key=event.key.toLowerCase();
-   const code=event.code.toLowerCase();
    const normalized=key==='arrowup'?'up':key==='arrowdown'?'down':key==='arrowleft'?'left':key==='arrowright'?'right':key===' '?'space':key;
    if(['up','down','left','right','w','a','s','d','space','p','1','2','3','4','5','6','7','8'].includes(normalized)){
     event.preventDefault();event.stopPropagation();this.physicalKeys.add(normalized);
+    this.keyboardLast.textContent='Odebrany klawisz: '+normalized;
+    this.updateKeyboardStatus('Gra odbiera klawiaturę ✓');
     if(!event.repeat)this.handleGameKey(normalized);
    }
   };
   this.onPhysicalKeyUp=event=>{const key=event.key.toLowerCase();const normalized=key==='arrowup'?'up':key==='arrowdown'?'down':key==='arrowleft'?'left':key==='arrowright'?'right':key===' '?'space':key;this.physicalKeys.delete(normalized);};
-  this.onKeyboardBlur=()=>this.physicalKeys.clear();
+  this.onKeyboardBlur=()=>{this.physicalKeys.clear();this.updateKeyboardStatus('Okno straciło fokus — aktywuj klawiaturę');};
   window.addEventListener('keydown',this.onPhysicalKeyDown,true);
   window.addEventListener('keyup',this.onPhysicalKeyUp,true);
   window.addEventListener('blur',this.onKeyboardBlur);
   const gameHost=document.getElementById('game');gameHost.tabIndex=0;
-  gameHost.addEventListener('pointerdown',()=>gameHost.focus({preventScroll:true}));
-  requestAnimationFrame(()=>gameHost.focus({preventScroll:true}));
+  gameHost.addEventListener('pointerdown',event=>{if(event.target.tagName==='CANVAS'&&event.target!==document.getElementById('world-minimap'))this.activateKeyboard();});
+  this.updateKeyboardStatus('Dotknij Aktywuj klawiaturę');
   const minimap=document.getElementById('world-minimap');
   minimap.addEventListener('click',event=>this.teleportFromMap(event));
   this.player=this.add.container(5850,9750).setDepth(10);
@@ -111,11 +120,17 @@ class Meadow extends Phaser.Scene{
   this.input.keyboard.enabled=false; // Obsługa przez window capture, również w Safari na iPadzie.
   this.layoutHUD(this.scale.width,this.scale.height);
   this.scale.on('resize',this.onGameResize,this);
-  this.events.once('shutdown',()=>{window.removeEventListener('keydown',this.onPhysicalKeyDown,true);window.removeEventListener('keyup',this.onPhysicalKeyUp,true);window.removeEventListener('blur',this.onKeyboardBlur);this.scale.off('resize',this.onGameResize,this);});
+  this.events.once('shutdown',()=>{this.keyboardActivate.replaceWith(this.keyboardActivate.cloneNode(true));window.removeEventListener('keydown',this.onPhysicalKeyDown,true);window.removeEventListener('keyup',this.onPhysicalKeyUp,true);window.removeEventListener('blur',this.onKeyboardBlur);this.scale.off('resize',this.onGameResize,this);});
   // Pierwsza fala dopiero po ustawieniu kamery w pierwszej klatce.
   this.lastSpawn=-1;
   this.updateTerrain();
  }
+ activateKeyboard(){
+  this.physicalKeys.clear();
+  this.keyboardCapture.focus({preventScroll:true});
+  this.updateKeyboardStatus(document.activeElement===this.keyboardCapture?'Aktywna — sprawdź WASD lub strzałki':'Safari nie przekazało fokusu — spróbuj ponownie');
+ }
+ updateKeyboardStatus(message){this.keyboardStatus.textContent=message;}
  handleGameKey(key){
   if(key==='p'){if(!this.upgradeOpen)this.togglePause();return;}
   if(this.upgradeOpen){if(['1','2','3'].includes(key))this.chooseUpgrade(Number(key)-1);return;}
