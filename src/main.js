@@ -1,4 +1,4 @@
-// Number Survivors 0.9.0 — łotrzyk łucznik i zróżnicowane slime'y
+// Number Survivors 0.9.1 — prawdziwe sprite'y łotrzyka i slime'ów
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -60,6 +60,10 @@ const factorTypes=n=>PRIMES.filter(p=>{let x=n;return x%p===0}).length;
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 class Meadow extends Phaser.Scene{
  constructor(){super('Meadow');}
+ preload(){
+  const sprites=['rogue_archer','slime_green','slime_bunny','slime_horned','slime_winged','slime_sword','slime_spear','slime_axe','slime_king'];
+  for(const name of sprites)this.load.image(name,'assets/sprites/'+name+'.png');
+ }
  create(){
   this.cameras.main.setBackgroundColor('#79b65d');
   this.terrainChunks=new Map();this.obstacleChunks=new Map();
@@ -240,6 +244,11 @@ class Meadow extends Phaser.Scene{
   const string=this.add.line(0,0,15,-16,15,15,0xe7d6b1).setLineWidth(1);
   hero.add([shadow,...boots,quiver,...feathers,cloak,torso,belt,face,hood,bow,string]);
   this.player.add(hero);this.heroVisual=hero;this.heroBoots=boots;
+  if(this.textures.exists('rogue_archer')){
+   hero.setVisible(false);
+   this.heroSprite=this.add.image(0,-7,'rogue_archer').setDisplaySize(67,67);
+   this.player.add(this.heroSprite);
+  }
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
   this.highestRegion=1;this.teleportTesting=false;
@@ -1140,8 +1149,16 @@ class Meadow extends Phaser.Scene{
   }
   // Liczba jest ponad głową, nigdy na twarzy slime'a.
   const label=this.add.text(0,-size*1.32,String(n),{fontFamily:'Arial',fontSize:size>30?'23px':'19px',fontStyle:'bold',color:'#ffffff',stroke:'#342044',strokeThickness:4}).setOrigin(.5);
-  const view=this.add.container(x,y,[...parts,label]).setDepth(7);
-  const enemy={n,x,y,size,view,label,body,boss:!!options.boss,swarm:!!options.swarm,hitPoints:options.hitPoints||0,armor:options.boss?10:0,baseColor:color,bornMinute:Math.floor((this.clock-this.startTime)/60000)};
+  const spriteNames={basic:'slime_green',rabbit:'slime_bunny',horned:'slime_horned',winged:'slime_winged',sword:'slime_sword',spear:'slime_spear',axe:'slime_axe',king:'slime_king'};
+  const spriteKey=spriteNames[variant];
+  let sprite=null;
+  if(this.textures.exists(spriteKey)){
+   for(const p of parts)p.setVisible(false);
+   sprite=this.add.image(0,-size*.3,spriteKey).setDisplaySize(size*2.7,size*2.7);
+   label.setY(-size*1.95);
+  }
+  const view=this.add.container(x,y,[...parts,...(sprite?[sprite]:[]),label]).setDepth(7);
+  const enemy={n,x,y,size,view,label,body,sprite,boss:!!options.boss,swarm:!!options.swarm,hitPoints:options.hitPoints||0,armor:options.boss?10:0,baseColor:color,bornMinute:Math.floor((this.clock-this.startTime)/60000)};
   this.enemies.push(enemy);
   return enemy;
  }
@@ -1263,10 +1280,10 @@ class Meadow extends Phaser.Scene{
    if(this.special?.active&&this.special.kind==='boss'){
     this.special.remaining=Math.max(0,this.special.remaining-1);this.updateEventBar();
    }
-   if(enemy.armor>0){enemy.body.setFillStyle(0xf1a5b1);this.time.delayedCall(85,()=>{if(enemy.view.active)enemy.body.setFillStyle(enemy.baseColor);});return;}
+   if(enemy.armor>0){enemy.body.setFillStyle(0xf1a5b1);if(enemy.sprite)enemy.sprite.setTint(0xffaaaa);this.time.delayedCall(85,()=>{if(enemy.view.active){enemy.body.setFillStyle(enemy.baseColor);if(enemy.sprite)enemy.sprite.clearTint();}});return;}
    enemy.armor=10;
   }
-  enemy.n/=prime;enemy.label.setText(String(enemy.n));enemy.body.setFillStyle(0xc9a5f0);
+  enemy.n/=prime;enemy.label.setText(String(enemy.n));enemy.body.setFillStyle(0xc9a5f0);if(enemy.sprite)enemy.sprite.setTint(0xe7baff);
   this.time.delayedCall(85,()=>{if(enemy.view.active)enemy.body.setFillStyle(enemy.baseColor)});
   if(enemy.n===1){
    const reward=enemy.boss?(enemy.bornMinute===10?30:enemy.bornMinute===20?40:50):1;
@@ -1302,7 +1319,8 @@ class Meadow extends Phaser.Scene{
   const dash=(this.isPressed('space')||this.touchDash)&&now-this.lastDash>4000;
   if(dash){this.lastDash=now;this.dashUntil=now+220;this.invulnUntil=now+220;this.dashDirection.copy(this.lastMove);}
   const dashing=now<this.dashUntil;
-  if(this.heroVisual){this.heroVisual.setScale(dx<-.15?-1:1,1);this.heroBoots[0].y=10+(len?Math.sin(now*.018)*3:0);this.heroBoots[1].y=10-(len?Math.sin(now*.018)*3:0);}
+  if(this.heroSprite){this.heroSprite.setFlipX(dx<-.15);this.heroSprite.y=-7+(len?Math.sin(now*.018)*1.5:0);}
+  else if(this.heroVisual){this.heroVisual.setScale(dx<-.15?-1:1,1);this.heroBoots[0].y=10+(len?Math.sin(now*.018)*3:0);this.heroBoots[1].y=10-(len?Math.sin(now*.018)*3:0);}
   const mx=dashing?this.dashDirection.x:dx,my=dashing?this.dashDirection.y:dy;
   const speed=dashing?780:220*this.moveMultiplier;
   this.moveAround(this.player,mx,my,dt,speed,16);
