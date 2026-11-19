@@ -83,3 +83,19 @@ p{margin:0;font-size:13px}
 #keyboard-last{color:#f6d98a}
 #keyboard-capture{position:absolute;left:0;top:0;width:1px;height:1px;opacity:.01;border:0;padding:0;pointer-events:none;font-size:16px;z-index:-1}
 @media(max-width:680px){#keyboard-tools{font-size:10px;gap:5px}#keyboard-activate{font-size:11px;padding:5px 8px}}
+
+/* 0.4.2: sterowanie dotykowe, również na tabletach z klawiaturą. */
+#control-settings{display:flex;align-items:center;gap:8px;font-size:12px}
+#control-mode{border:1px solid #789d6c;border-radius:6px;padding:5px;background:#243d2d;color:white;font:13px Arial}
+#touch-controls[hidden]{display:none!important}
+#touch-controls{position:absolute;inset:0;z-index:12;pointer-events:none;touch-action:none}
+#touch-stick{position:absolute;bottom:24px;left:24px;width:138px;height:138px;border-radius:50%;background:rgba(23,50,33,.6);border:3px solid #b3d1a5;pointer-events:auto;touch-action:none;display:grid;place-items:center;user-select:none}
+#touch-knob{width:60px;height:60px;border-radius:50%;background:#80b77b;border:2px solid #d3f0c6;pointer-events:none}
+.touch-actions{position:absolute;right:14px;bottom:15px;display:flex;flex-direction:column;align-items:end;gap:6px;pointer-events:none}
+.touch-actions button,#pause-resume{background:#326b42;border:1px solid #b5dda4;border-radius:8px;padding:8px 12px;color:white;font:bold 13px Arial;pointer-events:auto;touch-action:manipulation}
+#touch-primes{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;pointer-events:auto}
+#touch-primes button{min-width:42px;padding:6px}
+#touch-resume{display:none}
+#touch-upgrades{display:none}
+#pause-resume{margin:4px auto 9px;cursor:pointer}
+@media(max-width:700px){#touch-stick{width:108px;height:108px;left:9px;bottom:10px}#touch-knob{width:48px;height:48px}.touch-actions{right:5px;bottom:6px;gap:3px}.touch-actions button{padding:6px 8px;font-size:11px}#touch-primes button{min-width:32px;padding:5px}}
