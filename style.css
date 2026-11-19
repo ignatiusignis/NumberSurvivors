@@ -112,3 +112,8 @@ p{margin:0;font-size:13px}
 #touch-stick{bottom:clamp(18px,5vh,50px);left:clamp(14px,4vw,48px);width:clamp(120px,18vw,178px);height:clamp(120px,18vw,178px)}
 #touch-knob{width:44%;height:44%}
 @media(max-width:700px){.touch-actions{right:9px;bottom:12px;width:min(190px,43vw);gap:7px}#touch-dash{min-height:70px;font-size:19px!important}#touch-primes{gap:4px}#touch-primes button{min-height:40px;font-size:15px!important;padding:5px 2px}#touch-pause{min-height:38px;font-size:12px!important;margin-bottom:8px}#touch-stick{left:10px;bottom:18px;width:112px;height:112px}}
+
+/* 0.4.4: interfejsy nie nakładają się na siebie. */
+body.touch-mode #keyboard-tools{display:none}
+body.touch-mode #touch-controls{display:block}
+body:not(.touch-mode) #touch-controls{display:none!important}
