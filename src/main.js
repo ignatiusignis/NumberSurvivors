@@ -1,4 +1,4 @@
-// Number Survivors 0.9.2 — poprawa krycia sprite'ów i widoczna granica biomów
+// Number Survivors 0.9.3 — nowe PNG bez automatycznej ingerencji w alfa
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -62,42 +62,9 @@ class Meadow extends Phaser.Scene{
  constructor(){super('Meadow');}
  preload(){
   const sprites=['rogue_archer','slime_green','slime_bunny','slime_horned','slime_winged','slime_sword','slime_spear','slime_axe','slime_king'];
-  for(const name of sprites)this.load.image(name,'assets/sprites/'+name+'.png');
+  for(const name of sprites)this.load.image(name,'assets/sprites/'+name+'.png?v=093');
  }
  create(){
-  // Naprawa niezamierzonych przezroczystych dziur w wyciętych ilustracjach.
-  // Wykonywana raz przy uruchomieniu; nie obciąża klatek rozgrywki.
-  for(const name of ['rogue_archer','slime_green','slime_bunny','slime_horned','slime_winged','slime_sword','slime_spear','slime_axe','slime_king']){
-   if(!this.textures.exists(name))continue;
-   try{
-    const src=this.textures.get(name).getSourceImage();
-    const w=src.width,h=src.height;
-    const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-    const ctx=cv.getContext('2d',{willReadFrequently:true});ctx.drawImage(src,0,0);
-    const data=ctx.getImageData(0,0,w,h),p=data.data,seen=new Uint8Array(w*h);
-    const queue=new Int32Array(w*h);let head=0,tail=0;
-    const add=(i)=>{if(i<0||i>=w*h||seen[i]||p[i*4+3]>35)return;seen[i]=1;queue[tail++]=i;};
-    for(let x=0;x<w;x++){add(x);add((h-1)*w+x);}
-    for(let y=0;y<h;y++){add(y*w);add(y*w+w-1);}
-    while(head<tail){const i=queue[head++],x=i%w,y=(i/w)|0;
-     if(x>0)add(i-1);if(x<w-1)add(i+1);if(y>0)add(i-w);if(y<h-1)add(i+w);
-    }
-    // Uzupełnij tylko otwory zamknięte wewnątrz sylwetki, nie przezroczyste tło.
-    for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
-     const i=y*w+x,k=i*4,a=p[k+3];
-     if(a>35){if(a>140&&a<255)p[k+3]=255;continue;}
-     if(seen[i])continue;
-     let found=false;
-     for(let r=1;r<=12&&!found;r++)for(const [dx,dy] of [[-r,0],[r,0],[0,-r],[0,r],[-r,-r],[r,r]]){
-      const xx=x+dx,yy=y+dy;if(xx<0||yy<0||xx>=w||yy>=h)continue;
-      const j=(yy*w+xx)*4;if(p[j+3]>210){p[k]=p[j];p[k+1]=p[j+1];p[k+2]=p[j+2];p[k+3]=255;found=true;break;}
-     }
-    }
-    ctx.putImageData(data,0,0);
-    this.textures.remove(name);
-    this.textures.addCanvas(name,cv);
-   }catch(error){console.warn('Sprite alpha repair skipped:',name,error);}
-  }
   this.cameras.main.setBackgroundColor('#79b65d');
   this.terrainChunks=new Map();this.obstacleChunks=new Map();
   this.physicalKeys=new Set();
