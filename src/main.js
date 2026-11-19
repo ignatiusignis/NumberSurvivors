@@ -1,4 +1,4 @@
-// Number Survivors 0.8.0 — menu główne, opcje i instrukcja
+// Number Survivors 0.8.1 — teczka z czerwonymi paskami i ekrany zakończenia
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -72,6 +72,11 @@ class Meadow extends Phaser.Scene{
   this.controlSelect.value=matchMedia('(pointer:coarse)').matches?'touch':'keyboard';
   this.setControlMode(this.controlSelect.value);
   this.controlSelect.addEventListener('change',()=>this.setControlMode(this.controlSelect.value));
+  this.gameEnded=false;
+  this.endOverlay=document.getElementById('end-overlay');
+  document.getElementById('end-menu').addEventListener('click',()=>{
+   sessionStorage.removeItem('ns-start-immediately');location.reload();
+  });
   this.menuOpen=true;
   this.menu=document.getElementById('main-menu');
   this.menuHelp=document.getElementById('menu-help-panel');
@@ -183,6 +188,16 @@ class Meadow extends Phaser.Scene{
   const minimap=document.getElementById('world-minimap');
   minimap.addEventListener('pointerup',event=>{event.stopPropagation();this.teleportFromMap(event);});
   this.player=this.add.container(420,11500).setDepth(10);
+  // Cel wyprawy: teczka z czerwonymi paskami na końcu lochów.
+  this.briefcaseX=10050;this.briefcaseY=2350;
+  const caseArt=this.add.graphics().setDepth(8);
+  caseArt.fillStyle(0x131719,.45).fillEllipse(this.briefcaseX+3,this.briefcaseY+16,52,15);
+  caseArt.fillStyle(0x20242a).fillRoundedRect(this.briefcaseX-24,this.briefcaseY-14,48,35,5);
+  caseArt.lineStyle(4,0xc6a975).strokeRoundedRect(this.briefcaseX-24,this.briefcaseY-14,48,35,5);
+  caseArt.lineStyle(6,0xb52e35).lineBetween(this.briefcaseX-9,this.briefcaseY-12,this.briefcaseX-9,this.briefcaseY+18);
+  caseArt.lineStyle(6,0xb52e35).lineBetween(this.briefcaseX+7,this.briefcaseY-12,this.briefcaseX+7,this.briefcaseY+18);
+  caseArt.lineStyle(5,0xc6a975).strokeRoundedRect(this.briefcaseX-9,this.briefcaseY-23,18,11,3);
+  this.briefcaseArt=caseArt;
   // Jedna gotowa tekstura radialnego półmroku, bez przeliczania światła co klatkę.
   const fogCanvas=document.createElement('canvas');fogCanvas.width=2048;fogCanvas.height=2048;
   const fogCtx=fogCanvas.getContext('2d');
@@ -1206,11 +1221,12 @@ class Meadow extends Phaser.Scene{
   const profiling=this.perfToggle.checked;
   const profileStart=profiling?performance.now():0;
   let terrainMs=0,enemyMs=0;
-  if(this.menuOpen||this.upgradeOpen||this.manualPause)return;
+  if(this.menuOpen||this.gameEnded||this.upgradeOpen||this.manualPause)return;
   this.clock+=Math.min(delta,50);
   const now=this.clock;
   if(this.lastSpawn<0){this.spawnWave(2);this.lastSpawn=now;}
-  if(this.health<=0){this.scene.pause();this.add.text(this.cameras.main.scrollX+400,this.cameras.main.scrollY+250,'KONIEC GRY',{font:'bold 52px Arial',color:'#fff'}).setOrigin(.5);return;}
+  if(this.health<=0){this.finishGame(false);return;}
+  if(Math.hypot(this.player.x-this.briefcaseX,this.player.y-this.briefcaseY)<65){this.finishGame(true);return;}
   const dt=Math.min(delta,50)/1000;
   let dx=Number(this.isPressed('d','right'))-Number(this.isPressed('a','left'))+(this.controlMode==='touch'?this.touchVector.x:0);
   let dy=Number(this.isPressed('s','down'))-Number(this.isPressed('w','up'))+(this.controlMode==='touch'?this.touchVector.y:0);
@@ -1336,6 +1352,17 @@ class Meadow extends Phaser.Scene{
     host.append(dt,dd);
    }
   }
+ }
+ finishGame(won){
+  if(this.gameEnded)return;
+  this.gameEnded=true;this.time.paused=true;this.physicalKeys.clear();
+  document.getElementById('pause-overlay').hidden=true;
+  document.getElementById('upgrade-overlay').hidden=true;
+  this.endOverlay.hidden=false;
+  this.endOverlay.classList.toggle('is-victory',won);
+  document.getElementById('end-symbol').textContent=won?'▣':'☠';
+  document.getElementById('end-title').textContent=won?'Gratulacje!':'Umarłeś!';
+  document.getElementById('end-message').textContent=won?'Znalazłeś teczkę z czerwonymi paskami!':'Nie udało się przetrwać. Spróbuj ponownie!';
  }
  togglePause(){
   if(this.menuOpen)return;
