@@ -1,4 +1,4 @@
-// Number Survivors 0.5.2 — rasteryzacja chunków terenu i redukcja geometrii
+// Number Survivors 0.5.4 — diagnostyka wydajności silnika
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -89,6 +89,7 @@ class Meadow extends Phaser.Scene{
   this.perfPanel.hidden=!this.perfToggle.checked;
   this.perfToggle.addEventListener('change',()=>{this.perfPanel.hidden=!this.perfToggle.checked;localStorage.setItem('ns-perf',this.perfToggle.checked?'1':'0');});
   this.perfLast=0;
+  this.perfSamples={count:0,total:0,terrain:0,enemies:0,max:0};
   const joystick=(event)=>{
    const rect=this.touchStick.getBoundingClientRect(),cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
    const dx=event.clientX-cx,dy=event.clientY-cy,len=Math.hypot(dx,dy),max=rect.width*.35;
@@ -784,11 +785,9 @@ class Meadow extends Phaser.Scene{
   }
  }
  update(frameNow,delta){
-  if(this.perfToggle.checked&&frameNow-this.perfLast>500){
-   const fps=this.game.loop.actualFps;
-   this.perfPanel.textContent='FPS '+fps.toFixed(0)+' | Wrogowie '+this.enemies.length+' | Fragmenty '+this.terrainChunks.size;
-   this.perfLast=frameNow;
-  }
+  const profiling=this.perfToggle.checked;
+  const profileStart=profiling?performance.now():0;
+  let terrainMs=0,enemyMs=0;
   if(this.upgradeOpen||this.manualPause)return;
   this.clock+=Math.min(delta,50);
   const now=this.clock;
@@ -810,7 +809,7 @@ class Meadow extends Phaser.Scene{
   // Zmiana chunków potrzebna tylko po przesunięciu kamery do innego obszaru.
   const camera=this.cameras.main.worldView;
   const terrainKey=[Math.floor(camera.left/CHUNK),Math.floor(camera.top/CHUNK),Math.ceil(camera.right/CHUNK),Math.ceil(camera.bottom/CHUNK)].join(',');
-  if(terrainKey!==this.lastTerrainKey){this.lastTerrainKey=terrainKey;this.updateTerrain();}
+  if(terrainKey!==this.lastTerrainKey){const t=profiling?performance.now():0;this.lastTerrainKey=terrainKey;this.updateTerrain();if(profiling)terrainMs+=performance.now()-t;}
   const minute=Math.floor((now-this.startTime)/60000);
   if(minute>=5&&minute<=25&&minute%5===0&&this.eventIndex<minute/5){this.eventIndex=minute/5;this.prepareEvent(minute);}
   if(this.special&&!this.special.active&&now>=this.warningUntil)this.beginEvent();
@@ -818,6 +817,7 @@ class Meadow extends Phaser.Scene{
   if(minute===0){if(now-this.lastSpawn>=10000&&normalCount<30){this.spawnWave(2);this.lastSpawn=now;}}
   else if(now-this.lastSpawn>2500&&normalCount<Math.min(12+minute*2,45)){this.spawnWave(2);this.lastSpawn=now;}
   const cam=this.cameras.main;const bound=cam.worldView;
+  const enemyStart=profiling?performance.now():0;
   for(const enemy of [...this.enemies]){
    const distance=Math.hypot(this.player.x-enemy.x,this.player.y-enemy.y)||1;
    if(!enemy.swarm&&!enemy.boss&&enemy.bornMinute<minute&&(enemy.x<bound.left-400||enemy.x>bound.right+400||enemy.y<bound.top-300||enemy.y>bound.bottom+300)){enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);continue;}
@@ -826,6 +826,7 @@ class Meadow extends Phaser.Scene{
    this.steerEnemy(enemy,dt,enemySpeed);enemy.view.setPosition(enemy.x,enemy.y);
    if(distance<enemy.size+12&&now-this.lastDamage>850&&now>this.invulnUntil){this.health-=enemy.boss?2:1;this.lastDamage=now;}
   }
+  if(profiling)enemyMs=performance.now()-enemyStart;
   for(const p of this.active){
    if(now-(this.lastAttack.get(p)||0)<650/this.attackRate)continue;
    const targets=this.enemies.filter(e=>e.n%p===0&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<this.attackRange).sort((a,b)=>Phaser.Math.Distance.Between(a.x,a.y,this.player.x,this.player.y)-Phaser.Math.Distance.Between(b.x,b.y,this.player.x,this.player.y));
@@ -864,6 +865,15 @@ class Meadow extends Phaser.Scene{
   const dashReady=now-this.lastDash>=4000;
   document.getElementById('touch-dash').classList.toggle('is-cooling',!dashReady);
   this.dashBox.setFillStyle(dashReady?0x278a4a:0x515b55).setStrokeStyle(2,dashReady?0x8cde9b:0x7d8980);
+  if(profiling){
+   const ms=performance.now()-profileStart,p=this.perfSamples;
+   p.count++;p.total+=ms;p.terrain+=terrainMs;p.enemies+=enemyMs;p.max=Math.max(p.max,ms);
+   if(frameNow-this.perfLast>=600){
+    const avg=v=>(v/p.count).toFixed(1);
+    this.perfPanel.textContent='FPS '+this.game.loop.actualFps.toFixed(0)+' | Logika '+avg(p.total)+' ms (max '+p.max.toFixed(0)+') | Mapa '+avg(p.terrain)+' ms | Wrogowie '+avg(p.enemies)+' ms | '+this.enemies.length+' wrogów | '+this.terrainChunks.size+' fragmentów';
+    this.perfSamples={count:0,total:0,terrain:0,enemies:0,max:0};this.perfLast=frameNow;
+   }
+  }
  }
  upgradeLevels(){
   return [
