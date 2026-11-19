@@ -64,6 +64,14 @@ class Meadow extends Phaser.Scene{
   this.cameras.main.setBackgroundColor('#79b65d');
   this.terrainChunks=new Map();this.obstacleChunks=new Map();
   this.physicalKeys=new Set();
+  this.touchVector={x:0,y:0};this.touchDash=false;this.controlMode='keyboard';
+  this.controlSelect=document.getElementById('control-mode');
+  this.touchControls=document.getElementById('touch-controls');
+  this.touchStick=document.getElementById('touch-stick');
+  this.touchKnob=document.getElementById('touch-knob');
+  this.controlSelect.value=matchMedia('(pointer:coarse)').matches?'touch':'keyboard';
+  this.setControlMode(this.controlSelect.value);
+  this.controlSelect.addEventListener('change',()=>this.setControlMode(this.controlSelect.value));
   this.menuOpen=true;
   this.menu=document.getElementById('main-menu');
   this.menuHelp=document.getElementById('menu-help-panel');
@@ -82,7 +90,7 @@ class Meadow extends Phaser.Scene{
   this.menuBack.addEventListener('click',()=>openMenuPanel(null));
   document.getElementById('menu-new').addEventListener('click',()=>{
    openMenuPanel(null);
-   if(this.manualPause){sessionStorage.setItem('ns-start-immediately','1');location.reload();return;}
+   if(this.menuNeedsRestart){sessionStorage.setItem('ns-start-immediately','1');location.reload();return;}
    this.menuOpen=false;this.menu.hidden=true;this.time.paused=false;
    this.physicalKeys.clear();
    if(this.controlMode==='keyboard')this.activateKeyboard();
@@ -91,7 +99,7 @@ class Meadow extends Phaser.Scene{
    if(!this.manualPause)return;
    this.manualPause=false;
    document.getElementById('pause-overlay').hidden=true;
-   this.menuOpen=true;this.menu.hidden=false;
+   this.menuOpen=true;this.menuNeedsRestart=true;this.menu.hidden=false;
    this.time.paused=true;this.physicalKeys.clear();
   });
   const menuControl=document.getElementById('menu-control-mode');
@@ -103,14 +111,7 @@ class Meadow extends Phaser.Scene{
    sessionStorage.removeItem('ns-start-immediately');this.menuOpen=false;this.menu.hidden=true;
   }
   this.time.paused=this.menuOpen;
-  this.touchVector={x:0,y:0};this.touchDash=false;this.controlMode='keyboard';
-  this.controlSelect=document.getElementById('control-mode');
-  this.touchControls=document.getElementById('touch-controls');
-  this.touchStick=document.getElementById('touch-stick');
-  this.touchKnob=document.getElementById('touch-knob');
-  this.controlSelect.value=matchMedia('(pointer:coarse)').matches?'touch':'keyboard';
-  this.setControlMode(this.controlSelect.value);
-  this.controlSelect.addEventListener('change',()=>this.setControlMode(this.controlSelect.value));
+
   const savedOpacity=Number(localStorage.getItem('ns-touch-opacity'));
   this.touchOpacity=Number.isFinite(savedOpacity)&&savedOpacity>=.3&&savedOpacity<=1?savedOpacity:.8;
   this.opacitySlider=document.getElementById('touch-opacity');
