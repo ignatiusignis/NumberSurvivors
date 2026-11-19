@@ -1,4 +1,4 @@
-// Number Survivors 0.9.4 — diagnostyka niewidzialnych granic
+// Number Survivors 0.9.5 — domknięcie granicy nad startem
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -771,6 +771,27 @@ class Meadow extends Phaser.Scene{
      for(const [dx,dy,s] of [[-12,-11,.75],[9,-15,.86],[0,-25,.95]]){
       g.fillStyle(0x153c28).fillCircle(x+dx+3,y+dy+4,radius*s+3);
       g.fillStyle(hash(gx+dx,gy+dy,337)>.5?0x316c38:0x427b3d).fillCircle(x+dx,y+dy,radius*s);
+     }
+    }
+   }
+  }
+  // Domknięcie zachodniego końca bariery nad startem (x=0..~310, y~10700).
+  // To wyłącznie warstwa wizualna: brak zmian w kolizjach i trasach.
+  if(ox<400&&ox+CHUNK>=0&&oy<10920&&oy+CHUNK>10520){
+   for(let x=-12;x<=340;x+=37){
+    const y=10805-x*.235+Math.sin(x/63)*9;
+    if(x<ox-48||x>ox+CHUNK+48||y<oy-65||y>oy+CHUNK+65)continue;
+    const seed=Math.round(x/37),r=23+hash(seed,22,901)*9;
+    if(hash(seed,22,902)>.77){
+     g.fillStyle(0x273d30,.3).fillEllipse(x+8,y+13,r*2,r*.65);
+     g.fillStyle(0x696a57).fillEllipse(x,y,r*1.8,r*1.18);
+     g.fillStyle(0xaaa68c).fillEllipse(x-5,y-6,r*1.45,r*.75);
+    }else{
+     g.fillStyle(0x183a27,.4).fillEllipse(x+9,y+15,r*2.5,r*.8);
+     g.fillStyle(0x65462b).fillRoundedRect(x-5,y-5,10,23,3);
+     for(const [dx,dy,s] of [[-13,-9,.78],[12,-12,.82],[0,-24,.96]]){
+      g.fillStyle(0x163b25).fillCircle(x+dx+4,y+dy+5,r*s+3);
+      g.fillStyle(hash(seed+dx,22+dy,903)>.5?0x2e6638:0x3d773e).fillCircle(x+dx,y+dy,r*s);
      }
     }
    }
