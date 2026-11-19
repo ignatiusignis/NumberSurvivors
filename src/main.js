@@ -83,6 +83,12 @@ class Meadow extends Phaser.Scene{
   document.getElementById('pause-options').addEventListener('click',()=>{document.getElementById('options-panel').hidden=false;});
   document.getElementById('options-close').addEventListener('click',()=>{document.getElementById('options-panel').hidden=true;});
   this.applyTouchSettings();
+  this.perfPanel=document.getElementById('perf-panel');
+  this.perfToggle=document.getElementById('show-performance');
+  this.perfToggle.checked=localStorage.getItem('ns-perf')==='1';
+  this.perfPanel.hidden=!this.perfToggle.checked;
+  this.perfToggle.addEventListener('change',()=>{this.perfPanel.hidden=!this.perfToggle.checked;localStorage.setItem('ns-perf',this.perfToggle.checked?'1':'0');});
+  this.perfLast=0;
   const joystick=(event)=>{
    const rect=this.touchStick.getBoundingClientRect(),cx=rect.left+rect.width/2,cy=rect.top+rect.height/2;
    const dx=event.clientX-cx,dy=event.clientY-cy,len=Math.hypot(dx,dy),max=rect.width*.35;
@@ -767,6 +773,11 @@ class Meadow extends Phaser.Scene{
   }
  }
  update(frameNow,delta){
+  if(this.perfToggle.checked&&frameNow-this.perfLast>500){
+   const fps=this.game.loop.actualFps;
+   this.perfPanel.textContent='FPS '+fps.toFixed(0)+' | Wrogowie '+this.enemies.length+' | Fragmenty '+this.terrainChunks.size;
+   this.perfLast=frameNow;
+  }
   if(this.upgradeOpen||this.manualPause)return;
   this.clock+=Math.min(delta,50);
   const now=this.clock;
@@ -785,7 +796,10 @@ class Meadow extends Phaser.Scene{
   this.moveAround(this.player,mx,my,dt,speed,16);
   const currentRegion=regionAt(this.player.x,this.player.y);
   if(currentRegion.id<=6)this.highestRegion=Math.max(this.highestRegion,currentRegion.id);
-  this.updateTerrain();
+  // Zmiana chunków potrzebna tylko po przesunięciu kamery do innego obszaru.
+  const camera=this.cameras.main.worldView;
+  const terrainKey=[Math.floor(camera.left/CHUNK),Math.floor(camera.top/CHUNK),Math.ceil(camera.right/CHUNK),Math.ceil(camera.bottom/CHUNK)].join(',');
+  if(terrainKey!==this.lastTerrainKey){this.lastTerrainKey=terrainKey;this.updateTerrain();}
   const minute=Math.floor((now-this.startTime)/60000);
   if(minute>=5&&minute<=25&&minute%5===0&&this.eventIndex<minute/5){this.eventIndex=minute/5;this.prepareEvent(minute);}
   if(this.special&&!this.special.active&&now>=this.warningUntil)this.beginEvent();
