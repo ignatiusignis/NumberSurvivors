@@ -1,4 +1,4 @@
-// Number Survivors 0.9.9 — wybór pięciu poziomów trudności
+// Number Survivors 0.9.10 — uproszczone etykiety przeciwników
 const PRIMES=[2,3,5,7,11,13,17,19];
 const WORLD=12800;
 const CHUNK=640;
@@ -1369,7 +1369,7 @@ class Meadow extends Phaser.Scene{
   }
   enemy.factorHits=(enemy.factorHits||0)+1;
   if(enemy.factorHits<this.hitsPerFactor){
-   enemy.label.setText(String(enemy.n)+'  '+enemy.factorHits+'/'+this.hitsPerFactor);
+   // Ukryty licznik trafień: nad przeciwnikiem pozostaje tylko jego liczba.
    return;
   }
   enemy.factorHits=0;
