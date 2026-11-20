@@ -1799,16 +1799,32 @@ this.mageShieldLast=now;const r=45+this.mageShieldRange*12;this.showEffect('mage
    const sprite=this.add.image(x,y,'skeleton').setDisplaySize(54,54).setDepth(9);
    this.darkSkeletons.push({x,y,sprite,lastHit:-1000,index:i});
   }
+  // Przywołańcy pozostają w promieniu początkowego zasięgu Łucznika (450 px).
+  const leash=450;
+  const available=this.enemies.filter(e=>this.active.some(p=>e.n%p===0)&&Math.hypot(e.x-px,e.y-py)<=leash);
+  const claimed=new Set();
   for(const s of this.darkSkeletons){
-   const targets=this.enemies.filter(e=>this.active.some(p=>e.n%p===0));
-   targets.sort((a,b)=>Math.hypot(a.x-s.x,a.y-s.y)-Math.hypot(b.x-s.x,b.y-s.y));
-   const target=targets[0];
+   // Każdy szkielet ma własny cel; zachowuje go, dopóki jest poprawny.
+   let target=available.includes(s.target)?s.target:null;
+   if(!target||claimed.has(target)){
+    const free=available.filter(e=>!claimed.has(e));
+    const pool=free.length?free:available;
+    target=pool.length?pool.reduce((best,e)=>Math.hypot(e.x-s.x,e.y-s.y)<Math.hypot(best.x-s.x,best.y-s.y)?e:best):null;
+   }
+   s.target=target;
+   if(target)claimed.add(target);
    const angle=s.index*Math.PI*2/count+now*.00035;
-   const destX=target?target.x:px+Math.cos(angle)*60,destY=target?target.y:py+Math.sin(angle)*60;
+   const homeX=px+Math.cos(angle)*60,homeY=py+Math.sin(angle)*60;
+   const outOfBounds=Math.hypot(s.x-px,s.y-py)>leash;
+   const destX=target&&!outOfBounds?target.x:homeX,destY=target&&!outOfBounds?target.y:homeY;
    const dx=destX-s.x,dy=destY-s.y,d=Math.hypot(dx,dy)||1;
-   if(d>(target?target.size+22:10)){const step=Math.min(d,125*dt);s.x+=dx/d*step;s.y+=dy/d*step;}
+   const stop=target&&!outOfBounds?target.size+22:10;
+   if(d>stop){const step=Math.min(d-stop,125*dt);s.x+=dx/d*step;s.y+=dy/d*step;}
+   // Pościg nigdy nie wyprowadza szkieletu poza promień 450 px.
+   const fromPlayer=Math.hypot(s.x-px,s.y-py);
+   if(fromPlayer>leash){s.x=px+(s.x-px)/fromPlayer*leash;s.y=py+(s.y-py)/fromPlayer*leash;}
    s.sprite.setPosition(s.x,s.y).setFlipX(dx<0);
-   if(target&&d<target.size+35&&now-s.lastHit>=650/(1+this.darkSkeletonRate/6)){
+   if(target&&Math.hypot(target.x-s.x,target.y-s.y)<target.size+35&&now-s.lastHit>=650/(1+this.darkSkeletonRate/6)){
     s.lastHit=now;this.showEffect('skeleton_attack',target.x,target.y,150,55);
     for(const p of this.active)if(this.enemies.includes(target)&&target.n%p===0)this.hit(target,p);
     if(this.enemies.includes(target)&&Math.random()<.05+this.darkFear*.05){target.fearedUntil=Math.max(target.fearedUntil||0,now+2000);this.showEffect('dark_mage_fear',target.x,target.y,220,70);}
@@ -1816,10 +1832,15 @@ this.mageShieldLast=now;const r=45+this.mageShieldRange*12;this.showEffect('mage
   }
   if(this.darkGolemLevel>0){
    if(!this.darkGolem){const sprite=this.add.image(px+75,py,'golem').setDisplaySize(86,86).setDepth(9);this.darkGolem={x:px+75,y:py,sprite,lastHit:-1000};}
-   const g=this.darkGolem,targets=this.enemies.filter(e=>this.active.some(p=>e.n%p===0));
-   targets.sort((a,b)=>Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(b.x-g.x,b.y-g.y));
-   const t=targets[0],dx=(t?t.x:px+70)-g.x,dy=(t?t.y:py)-g.y,d=Math.hypot(dx,dy)||1;
-   if(d>(t?t.size+35:10)){const step=Math.min(d,100*dt);g.x+=dx/d*step;g.y+=dy/d*step;}
+   const g=this.darkGolem;
+   const free=available.filter(e=>!claimed.has(e)),pool=free.length?free:available;
+   const t=pool.length?pool.reduce((best,e)=>Math.hypot(e.x-g.x,e.y-g.y)<Math.hypot(best.x-g.x,best.y-g.y)?e:best):null;
+   const far=Math.hypot(g.x-px,g.y-py)>leash;
+   const dx=(t&&!far?t.x:px+70)-g.x,dy=(t&&!far?t.y:py)-g.y,d=Math.hypot(dx,dy)||1;
+   const stop=t&&!far?t.size+35:10;
+   if(d>stop){const step=Math.min(d-stop,100*dt);g.x+=dx/d*step;g.y+=dy/d*step;}
+   const golemDistance=Math.hypot(g.x-px,g.y-py);
+   if(golemDistance>leash){g.x=px+(g.x-px)/golemDistance*leash;g.y=py+(g.y-py)/golemDistance*leash;}
    g.sprite.setPosition(g.x,g.y).setFlipX(dx<0);
    if(now<this.darkTauntUntil){g.sprite.setTint(0xffb9fa);this.darkAuraVisual.lineStyle(3,0xe19bff,.9);this.darkAuraVisual.strokeCircle(g.x,g.y,52);}else g.sprite.clearTint();
    if(t&&d<t.size+47&&now-g.lastHit>=650/(1+(this.darkGolemLevel-1)*.25)){
