@@ -267,7 +267,7 @@ class Meadow extends Phaser.Scene{
   this.player.add(hero);this.heroVisual=hero;this.heroBoots=boots;
   if(this.textures.exists('rogue_archer')){
    hero.setVisible(false);
-   this.heroSprite=this.add.image(0,-7,'rogue_archer').setDisplaySize(76,76);
+   this.heroSprite=this.add.image(0,-7,'rogue_archer_new').setDisplaySize(76,76);
    this.player.add(this.heroSprite);
    this.heroSprite.setOrigin(.5,.62);
   }
@@ -1510,7 +1510,7 @@ class Meadow extends Phaser.Scene{
     const blocked=this.characterClass==='warrior'&&Math.random()<(.10+this.warriorBlock*.05);
     const dodged=this.characterClass==='archer'&&Math.random()<this.attackDodgeLevel*.01;
     if(!blocked&&!dodged){this.health-=enemy.boss?2:1;
-     if(this.characterClass==='mage'&&now-this.mageShieldLast>=Math.max(1000,6000-this.mageShieldCooldown*1000)){this.mageShieldLast=now;const r=45+this.mageShieldRange*12;this.showEffect('mage_static_shield',this.player.x,this.player.y,300,r*2);for(const e of this.enemies)if(Math.hypot(e.x-this.player.x,e.y-this.player.y)<r+e.size)this.pushEnemy(e,55+this.mageShieldRange*15);}
+     if(this.characterClass==='mage'&&now-this.mageShieldLast>=Math.max(1000,6000-this.mageShieldCooldown*1000)){this.mageShieldLast=now;const r=45+this.mageShieldRange*12;this.showEffect('mage_shield_burst',this.player.x,this.player.y,300,r*2);for(const e of this.enemies)if(Math.hypot(e.x-this.player.x,e.y-this.player.y)<r+e.size)this.pushEnemy(e,55+this.mageShieldRange*15);}
     }else if(blocked)this.showEffect('warrior_block',this.player.x,this.player.y,240,76);else this.showEffect('rogue_dodge',this.player.x,this.player.y,200,76);
     this.lastDamage=now;
    }
@@ -1614,7 +1614,7 @@ class Meadow extends Phaser.Scene{
    const selected=this.active.includes(PRIMES[i]);button.classList.toggle('is-selected',selected);
    button.setAttribute('aria-pressed',String(selected));
   });
-  const dashReady=this.characterClass==='mage'?now-this.specialLast>=8000*(1-this.mageStunCooldown*.05):now-this.lastDash>=4000*(1-this.dashCooldownLevel*.05);
+  const dashReady=this.characterClass==='dark_mage'?!!this.darkGolem&&now-this.specialLast>=30000-this.darkTauntCooldown*2000:this.characterClass==='mage'?now-this.specialLast>=8000*(1-this.mageStunCooldown*.05):now-this.lastDash>=4000*(1-this.dashCooldownLevel*.05);
   document.getElementById('touch-dash').classList.toggle('is-cooling',!dashReady);
   this.dashBox.setFillStyle(dashReady?0x278a4a:0x515b55).setStrokeStyle(2,dashReady?0x8cde9b:0x7d8980);
   if(profiling){
@@ -1658,13 +1658,23 @@ class Meadow extends Phaser.Scene{
    {id:'warriorDoublePotion',title:'Podwójna mikstura',level:this.warriorDoublePotion,max:5,effect:'+10% szansy'},
    {id:'warriorAttackRate',title:'Szybkość zamachu',level:this.warriorAttackRate,max:10,effect:'+10% częstotliwości'},
    {id:'warriorIFrames',title:'Nietykalność po obrażeniach',level:this.warriorIFrames,max:10,effect:'+0,1 s'}
-  ]:[]).filter(u=>['movement','pickup','health','potion'].includes(u.id)||(this.characterClass==='archer'&&!['mage','warrior'].includes(u.id))||(this.characterClass==='warrior'&&['warriorConeRange','warriorConeWidth','dashRange','warriorPushRange','dashCooldown','warriorBlock','warriorDoublePotion','warriorAttackRate','warriorIFrames'].includes(u.id))||(this.characterClass==='mage'&&u.id.startsWith('mage')));
+  ]:this.characterClass==='dark_mage'?[
+   {id:'darkSkeletonCount',title:'Liczba szkieletów',level:this.darkSkeletonCount,max:8,effect:'+1 szkielet (maks. 10)'},
+   {id:'darkSkeletonRate',title:'Szybkość ataku szkieletów',level:this.darkSkeletonRate,max:6,effect:'+16,7% szybkości'},
+   {id:'darkFear',title:'Strach szkieletów',level:this.darkFear,max:6,effect:'+5% szansy (spowolnienie 50% na 2 s)'},
+   {id:'darkAuraRange',title:'Zasięg aury mroku',level:this.darkAuraRange,max:5,effect:'+6 px'},
+   {id:'darkAuraRate',title:'Częstotliwość aury',level:this.darkAuraRate,max:5,effect:'+20%'},
+   {id:'darkLifesteal',title:'Wysysanie życia',level:this.darkLifesteal,max:5,effect:'+0,5% szansy na +1 HP'},
+   {id:'darkGolemLevel',title:'Golem',level:this.darkGolemLevel,max:5,effect:this.darkGolemLevel===0?'Odblokuj golema':'+25% szybkości ataku golema'},
+   {id:'darkTauntDuration',title:'Odwrócenie uwagi (spacja)',level:this.darkTauntDuration,max:5,effect:'+1 s działania (maks. 6 s)'},
+   {id:'darkTauntCooldown',title:'Odnowienie odwrócenia uwagi',level:this.darkTauntCooldown,max:5,effect:'−2 s (start 30 s)'}
+  ]:[]).filter(u=>['movement','pickup','health','potion'].includes(u.id)||(this.characterClass==='archer'&&!['mage','warrior'].includes(u.id))||(this.characterClass==='warrior'&&['warriorConeRange','warriorConeWidth','dashRange','warriorPushRange','dashCooldown','warriorBlock','warriorDoublePotion','warriorAttackRate','warriorIFrames'].includes(u.id))||(this.characterClass==='mage'&&u.id.startsWith('mage'))||(this.characterClass==='dark_mage'&&u.id.startsWith('dark')));
  }
  statsMarkup(){
   const levels=this.upgradeLevels();
   const rank=id=>{const u=levels.find(v=>v.id===id);return u?u.level+'/'+u.max:'0/0';};
   const rows=[
-   ['Klasa',this.characterClass==='mage'?'Niebieski Mag':this.characterClass==='warrior'?'Wojownik':'Łucznik'],
+   ['Klasa',this.characterClass==='dark_mage'?'Mroczny Mag':this.characterClass==='mage'?'Niebieski Mag':this.characterClass==='warrior'?'Wojownik':'Łucznik'],
    ['Poziom postaci',this.level],
    ['HP',this.health+' / '+this.maxHealth],
    ['Maksymalne HP '+rank('health'),this.maxHealth],
@@ -1688,9 +1698,21 @@ class Meadow extends Phaser.Scene{
    ['Zasięg szarży '+rank('dashRange'),'+'+this.dashRangeLevel*5+'%'],
    ['Zasięg odepchnięcia '+rank('warriorPushRange'),'+'+this.warriorPushRange*15+'%'],
    ['Odnowienie szarży '+rank('dashCooldown'),'-'+this.dashCooldownLevel*5+'%'],
-   ['Blok '+rank('warriorBlock'),this.warriorBlock*5+'%'],
+   ['Blok '+rank('warriorBlock'),(10+this.warriorBlock*5)+'%'],
+   ['Podwójny zamach','25% szansy'],
    ['Podwójna mikstura '+rank('warriorDoublePotion'),this.warriorDoublePotion*10+'%'],
    ['Nietykalność po trafieniu '+rank('warriorIFrames'),(1.5+this.warriorIFrames*.1).toFixed(1)+' s']
+  );
+  if(this.characterClass==='dark_mage')rows.push(
+   ['Szkielety '+rank('darkSkeletonCount'),2+this.darkSkeletonCount],
+   ['Szybkość szkieletów '+rank('darkSkeletonRate'),Math.round((1+this.darkSkeletonRate/6)*100)+'%'],
+   ['Strach '+rank('darkFear'),5+this.darkFear*5+'% (2 s, -50%)'],
+   ['Zasięg aury '+rank('darkAuraRange'),90+this.darkAuraRange*6+' px'],
+   ['Częstotliwość aury '+rank('darkAuraRate'),100+this.darkAuraRate*20+'%'],
+   ['Wysysanie krwi '+rank('darkLifesteal'),(this.darkLifesteal*.5).toFixed(1)+'%'],
+   ['Golem '+rank('darkGolemLevel'),this.darkGolemLevel?'aktywny':'zablokowany'],
+   ['Odwrócenie uwagi '+rank('darkTauntDuration'),1+this.darkTauntDuration+' s'],
+   ['Odnowienie spacji '+rank('darkTauntCooldown'),30-this.darkTauntCooldown*2+' s']
   );
   if(this.characterClass==='mage')rows.push(
    ['Częstotliwość piorunów '+rank('mageAttackRate'),Math.round((1+this.mageAttackRate*.1)*100)+'%'],
@@ -1781,7 +1803,7 @@ class Meadow extends Phaser.Scene{
    const angle=s.index*Math.PI*2/count+now*.00035;
    const destX=target?target.x:px+Math.cos(angle)*60,destY=target?target.y:py+Math.sin(angle)*60;
    const dx=destX-s.x,dy=destY-s.y,d=Math.hypot(dx,dy)||1;
-   if(d>target?.size+22){const step=Math.min(d,125*dt);s.x+=dx/d*step;s.y+=dy/d*step;}
+   if(d>(target?target.size+22:10)){const step=Math.min(d,125*dt);s.x+=dx/d*step;s.y+=dy/d*step;}
    s.sprite.setPosition(s.x,s.y).setFlipX(dx<0);
    if(target&&d<target.size+35&&now-s.lastHit>=650/(1+this.darkSkeletonRate/6)){
     s.lastHit=now;this.showEffect('skeleton_attack',target.x,target.y,150,55);
@@ -1821,13 +1843,13 @@ class Meadow extends Phaser.Scene{
   for(let i=1;i<=steps;i++){const t=i/steps,j=i===steps?0:Math.sin(seed*.027+i*18.2)*6;const x=x1+(x2-x1)*t+nx*j,y=y1+(y2-y1)*t+ny*j;g.lineBetween(px,py,x,y);px=x;py=y;}
  }
  applyCharacter(character){
-  this.characterClass=character==='engineer'?'mage':['archer','warrior','mage'].includes(character)?character:'archer';
+  this.characterClass=character==='engineer'?'mage':['archer','warrior','mage','dark_mage'].includes(character)?character:'archer';
   this.heroVisual?.setVisible(false);this.heroSprite?.setVisible(this.characterClass==='archer');
-  const ability=this.characterClass==='mage'?'OGŁUSZENIE':this.characterClass==='warrior'?'SZARŻA':'UNIK';
+  const ability=this.characterClass==='dark_mage'?'ODWRÓĆ UWAGĘ':this.characterClass==='mage'?'OGŁUSZENIE':this.characterClass==='warrior'?'SZARŻA':'UNIK';
   this.dashHint?.setText(ability);const touch=document.getElementById('touch-dash');if(touch)touch.textContent=ability;
   this.classVisual.setVisible(false);if(this.classSprite){this.classSprite.destroy();this.classSprite=null;}
   if(this.characterClass!=='archer'){
-   const key=this.characterClass==='mage'?'blue_mage':'warrior';
+   const key=this.characterClass==='dark_mage'?'dark_mage':this.characterClass==='mage'?'blue_mage_new':'warrior_new';
    if(this.textures.exists(key)){this.classSprite=this.add.image(0,-7,key).setDisplaySize(76,76).setOrigin(.5,.62);this.player.add(this.classSprite);}
    else this.classVisual.setVisible(true);
   }
@@ -1853,7 +1875,7 @@ class Meadow extends Phaser.Scene{
   const cards=document.getElementById('upgrade-cards');
   document.getElementById('upgrade-level').textContent='Poziom '+this.level+' — wybierz ulepszenie';
   const notice=document.getElementById('slot-unlock');
-  notice.hidden=![10,20,30].includes(this.level);
+  notice.hidden=![10,20,30,40].includes(this.level);
   if(!notice.hidden)notice.textContent='🔓 Nowy slot ataku! Dostępne: '+this.slotCount()+' sloty, '+this.lockLimit()+' blokady.';
   cards.replaceChildren();
   let reroll=document.getElementById('upgrade-reroll');
@@ -1924,6 +1946,15 @@ class Meadow extends Phaser.Scene{
     case 'warriorDoublePotion':this.warriorDoublePotion=Math.min(5,this.warriorDoublePotion+1);break;
     case 'warriorAttackRate':this.warriorAttackRate=Math.min(10,this.warriorAttackRate+1);break;
     case 'warriorIFrames':this.warriorIFrames=Math.min(10,this.warriorIFrames+1);break;
+    case 'darkSkeletonCount':this.darkSkeletonCount=Math.min(8,this.darkSkeletonCount+1);break;
+    case 'darkSkeletonRate':this.darkSkeletonRate=Math.min(6,this.darkSkeletonRate+1);break;
+    case 'darkFear':this.darkFear=Math.min(6,this.darkFear+1);break;
+    case 'darkAuraRange':this.darkAuraRange=Math.min(5,this.darkAuraRange+1);break;
+    case 'darkAuraRate':this.darkAuraRate=Math.min(5,this.darkAuraRate+1);break;
+    case 'darkLifesteal':this.darkLifesteal=Math.min(5,this.darkLifesteal+1);break;
+    case 'darkGolemLevel':this.darkGolemLevel=Math.min(5,this.darkGolemLevel+1);break;
+    case 'darkTauntDuration':this.darkTauntDuration=Math.min(5,this.darkTauntDuration+1);break;
+    case 'darkTauntCooldown':this.darkTauntCooldown=Math.min(5,this.darkTauntCooldown+1);break;
    }
   }
   this.pendingUpgrades=Math.max(0,this.pendingUpgrades-1);
