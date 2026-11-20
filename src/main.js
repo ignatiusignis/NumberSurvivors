@@ -277,7 +277,7 @@ class Meadow extends Phaser.Scene{
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
   this.highestRegion=1;this.teleportTesting=false;
-  this.active=[2];this.locked=[];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.manualPause=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.multishot=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.potionLevel=0;this.dashRangeLevel=0;this.dashCooldownLevel=0;this.warriorConeRange=0;this.warriorConeWidth=0;this.warriorBlock=0;this.warriorDoublePotion=0;this.warriorIFrames=0;this.mageChainChance=0;this.mageChainCount=0;this.mageStunRange=0;this.mageStunDuration=0;this.mageStunCooldown=0;this.mageShieldRange=0;this.mageShieldCooldown=0;this.mageAttackRate=0;this.mageAttackRange=0;this.warriorAttackRate=0;this.specialLast=-10000;this.mageShieldLast=-10000;this.mageStunUntil=0;this.specialEffects=[];this.mageChains=new Map();this.chargeHitEnemies=new Set();this.knockbackLevel=0;this.attackDodgeLevel=0;this.rerollsLeft=3;this.drops=[];this.special=null;this.eventIndex=0;this.warningUntil=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
+  this.active=[2];this.locked=[];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.manualPause=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.multishot=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.potionLevel=0;this.dashRangeLevel=0;this.dashCooldownLevel=0;this.warriorPushRange=0;this.warriorConeRange=0;this.warriorConeWidth=0;this.warriorBlock=0;this.warriorDoublePotion=0;this.warriorIFrames=0;this.mageChainChance=0;this.mageChainCount=0;this.mageStunRange=0;this.mageStunDuration=0;this.mageStunCooldown=0;this.mageShieldRange=0;this.mageShieldCooldown=0;this.mageAttackRate=0;this.mageAttackRange=0;this.warriorAttackRate=0;this.specialLast=-10000;this.mageShieldLast=-10000;this.mageStunUntil=0;this.specialEffects=[];this.mageChains=new Map();this.chargeHitEnemies=new Set();this.knockbackLevel=0;this.attackDodgeLevel=0;this.rerollsLeft=3;this.drops=[];this.special=null;this.eventIndex=0;this.warningUntil=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
   // Stałe elementy HUD: paski w lewym górnym rogu, dzielniki i unik na dole.
   const ui=(obj)=>obj.setScrollFactor(0).setDepth(100);
   const txt=(x,y,s,size=16)=>ui(this.add.text(x,y,s,{fontFamily:'Arial',fontSize:size+'px',fontStyle:'bold',color:'#ffffff',stroke:'#233c27',strokeThickness:3}));
@@ -1354,10 +1354,11 @@ class Meadow extends Phaser.Scene{
   const flash=this.add.circle(x,y,7,0xffe4a0,.85).setDepth(11);
   this.tweens.add({targets:flash,scale:2.2,alpha:0,duration:165,ease:'Quad.Out',onComplete:()=>flash.destroy()});
  }
- shoot(target,prime,now){
-  const dx=target.x-this.player.x,dy=target.y-this.player.y,dist=Math.hypot(dx,dy)||1;
-  const line=this.add.line(0,0,this.player.x,this.player.y,this.player.x+dx/dist*18,this.player.y+dy/dist*18,0x4d3423).setOrigin(0).setLineWidth(2).setDepth(9);
-  this.arrows.push({line,from:now,originX:this.player.x,originY:this.player.y,target,prime});
+ shoot(target,prime,now,angle=null){
+  const dx=target?target.x-this.player.x:Math.cos(angle),dy=target?target.y-this.player.y:Math.sin(angle),dist=Math.hypot(dx,dy)||1;
+  const dir=angle===null?Math.atan2(dy,dx):angle;
+  const line=this.add.line(0,0,this.player.x,this.player.y,this.player.x+Math.cos(dir)*18,this.player.y+Math.sin(dir)*18,0x4d3423).setOrigin(0).setLineWidth(2).setDepth(9);
+  this.arrows.push({line,from:now,originX:this.player.x,originY:this.player.y,target,prime,angle:dir,range:this.attackRange});
   this.heroShootUntil=now+180;
   this.heroAimX=dx/dist;
  }
@@ -1465,7 +1466,7 @@ class Meadow extends Phaser.Scene{
   const mx=dashing?this.dashDirection.x:dx,my=dashing?this.dashDirection.y:dy;
   const speed=dashing?780*(1+this.dashRangeLevel*.05):220*this.moveMultiplier;
   const oldX=this.player.x,oldY=this.player.y;this.moveAround(this.player,mx,my,dt,speed,16);
-  if(dashing&&this.characterClass==='warrior')for(const e of [...this.enemies]){const ax=this.player.x-oldX,ay=this.player.y-oldY,dist=Math.hypot(ax,ay)||1,ex=e.x-oldX,ey=e.y-oldY,along=(ex*ax+ey*ay)/dist,side=Math.abs(ex*ay-ey*ax)/dist;if(along>=0&&along<=dist+e.size+15&&side<e.size+18&&!this.chargeHitEnemies.has(e)){this.chargeHitEnemies.add(e);for(const p of this.active)if(e.n%p===0&&this.enemies.includes(e))this.hit(e,p);if(this.enemies.includes(e))this.pushEnemy(e,150);}}
+  if(dashing&&this.characterClass==='warrior')for(const e of [...this.enemies]){const ax=this.player.x-oldX,ay=this.player.y-oldY,dist=Math.hypot(ax,ay)||1,ex=e.x-oldX,ey=e.y-oldY,along=(ex*ax+ey*ay)/dist,side=Math.abs(ex*ay-ey*ax)/dist;if(along>=0&&along<=dist+e.size+15&&side<e.size+18&&!this.chargeHitEnemies.has(e)){this.chargeHitEnemies.add(e);for(const p of this.active)if(e.n%p===0&&this.enemies.includes(e))this.hit(e,p);if(this.enemies.includes(e))this.pushEnemy(e,150*(1+this.warriorPushRange*.15));}}
   // Ograniczona widoczność działa tylko wewnątrz lochów.
   const inDungeon=this.player.x>=DUNGEON.left&&this.player.x<DUNGEON.right&&this.player.y>=DUNGEON.top&&this.player.y<DUNGEON.bottom;
   this.dungeonVision.setVisible(inDungeon);
@@ -1598,12 +1599,22 @@ class Meadow extends Phaser.Scene{
     continue;
    }
    const targets=this.enemies.filter(e=>e.n%p===0&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<this.attackRange).sort((a,b)=>Phaser.Math.Distance.Between(a.x,a.y,this.player.x,this.player.y)-Phaser.Math.Distance.Between(b.x,b.y,this.player.x,this.player.y));
-   if(targets.length){for(const target of targets.slice(0,this.multishot))this.shoot(target,p,now);this.lastAttack.set(p,now);}
+   if(targets.length){
+    const main=targets[0],cx=this.player.x,cy=this.player.y,base=Math.atan2(main.y-cy,main.x-cx);
+    const spread=Math.PI/6,count=this.multishot;
+    for(let i=0;i<count;i++){
+     const angle=base+(count===1?0:(i/(count-1)-.5)*spread),ux=Math.cos(angle),uy=Math.sin(angle);
+     const candidates=targets.filter(e=>{const ex=e.x-cx,ey=e.y-cy,d=Math.hypot(ex,ey),along=ex*ux+ey*uy,side=Math.abs(ex*uy-ey*ux);return along>0&&along<=this.attackRange&&side<=e.size+10;});
+     candidates.sort((a,b)=>Math.hypot(a.x-cx,a.y-cy)-Math.hypot(b.x-cx,b.y-cy));
+     this.shoot(candidates[0]||null,p,now,angle);
+    }
+    this.lastAttack.set(p,now);
+   }
   }
   for(const a of [...this.arrows]){
-   const age=now-a.from,progress=Math.min(age/170,1),tx=a.target.x,ty=a.target.y;
+   const age=now-a.from,progress=Math.min(age/170,1),tx=a.originX+Math.cos(a.angle)*a.range,ty=a.originY+Math.sin(a.angle)*a.range;
    a.line.setTo(a.originX+(tx-a.originX)*progress,a.originY+(ty-a.originY)*progress,a.originX+(tx-a.originX)*progress+8,a.originY+(ty-a.originY)*progress+3);
-   if(progress===1){a.line.destroy();this.arrows.splice(this.arrows.indexOf(a),1);this.hit(a.target,a.prime);}
+   if(progress===1){a.line.destroy();this.arrows.splice(this.arrows.indexOf(a),1);const dx=Math.cos(a.angle),dy=Math.sin(a.angle);const hits=this.enemies.filter(e=>e.n%a.prime===0&&Math.hypot(e.x-a.originX,e.y-a.originY)<=a.range+e.size&&((e.x-a.originX)*dx+(e.y-a.originY)*dy)>0&&Math.abs((e.x-a.originX)*dy-(e.y-a.originY)*dx)<=e.size+9);hits.sort((x,y)=>Math.hypot(x.x-a.originX,x.y-a.originY)-Math.hypot(y.x-a.originX,y.y-a.originY));if(hits.length)this.hit(hits[0],a.prime);}
   }
   for(const t of [...this.tokens])if(Math.hypot(t.x-this.player.x,t.y-this.player.y)<this.pickupRadius){t.view.destroy();this.tokens.splice(this.tokens.indexOf(t),1);this.exp++;this.total++;while(this.exp>=nextCost(this.level)){this.exp-=nextCost(this.level);this.level++;this.pendingUpgrades++;}}
   for(const drop of [...this.drops]){
@@ -1651,7 +1662,7 @@ class Meadow extends Phaser.Scene{
    {id:'pickup',title:'Zasięg zbierania EXP',level:Math.ceil((this.pickupRadius-37)/50),max:5,effect:'+50 px'},
    {id:'health',title:'Maksymalne HP',level:this.maxHealth-5,max:5,effect:'+1 HP (leczy)'},
    {id:'potion',title:'Mikstury zdrowia',level:this.potionLevel,max:5,effect:'+0,5% szansy na miksturę (+1 HP)'},
-   {id:'multishot',title:'Wielostrzał',level:this.multishot-1,max:5,effect:'+1 strzała na dzielnik'},
+   {id:'multishot',title:'Wielostrzał',level:this.multishot-1,max:5,effect:'+2 strzały (stożek 30°)'},
    {id:'dashRange',title:this.characterClass==='warrior'?'Zasięg szarży (spacja)':'Zasięg uniku (spacja)',level:this.dashRangeLevel,max:5,effect:'+5% zasięgu'},
    {id:'dashCooldown',title:this.characterClass==='warrior'?'Odnowienie szarży (spacja)':'Odnowienie uniku (spacja)',level:this.dashCooldownLevel,max:5,effect:'−5% czasu odnowienia'},
    {id:'knockback',title:'Powalający strzał',level:this.knockbackLevel,max:10,effect:'+1% szansy na zatrzymanie zwykłego wroga na 1 s'},
@@ -1669,13 +1680,13 @@ class Meadow extends Phaser.Scene{
   ]:this.characterClass==='warrior'?[
    {id:'warriorConeRange',title:'Zasięg ataku',level:this.warriorConeRange,max:5,effect:'+40% zasięgu początkowego'},
    {id:'warriorConeWidth',title:'Szerokość ataku',level:this.warriorConeWidth,max:5,effect:'+14° (maks. 90°)'},
-   {id:'dashRange',title:'Zasięg szarży',level:this.dashRangeLevel,max:5,effect:'+5%'},
+   {id:'warriorPushRange',title:'Zasięg odepchnięcia',level:this.warriorPushRange,max:5,effect:'+15% odrzutu'},
    {id:'dashCooldown',title:'Odnowienie szarży',level:this.dashCooldownLevel,max:5,effect:'−5% czasu'},
    {id:'warriorBlock',title:'Blok',level:this.warriorBlock,max:5,effect:'+5% szansy'},
    {id:'warriorDoublePotion',title:'Podwójna mikstura',level:this.warriorDoublePotion,max:5,effect:'+10% szansy'},
    {id:'warriorAttackRate',title:'Szybkość zamachu',level:this.warriorAttackRate,max:10,effect:'+10% częstotliwości'},
    {id:'warriorIFrames',title:'Nietykalność po obrażeniach',level:this.warriorIFrames,max:10,effect:'+0,1 s'}
-  ]:[]).filter(u=>['movement','pickup','health','potion'].includes(u.id)||(this.characterClass==='archer'&&!['mage','warrior'].includes(u.id))||(this.characterClass==='warrior'&&['warriorConeRange','warriorConeWidth','dashRange','dashCooldown','warriorBlock','warriorDoublePotion','warriorAttackRate','warriorIFrames'].includes(u.id))||(this.characterClass==='mage'&&u.id.startsWith('mage')));
+  ]:[]).filter(u=>['movement','pickup','health','potion'].includes(u.id)||(this.characterClass==='archer'&&!['mage','warrior'].includes(u.id))||(this.characterClass==='warrior'&&['warriorConeRange','warriorConeWidth','dashRange','warriorPushRange','dashCooldown','warriorBlock','warriorDoublePotion','warriorAttackRate','warriorIFrames'].includes(u.id))||(this.characterClass==='mage'&&u.id.startsWith('mage')));
  }
  statsMarkup(){
   const levels=this.upgradeLevels();
@@ -1692,7 +1703,7 @@ class Meadow extends Phaser.Scene{
   if(this.characterClass==='archer')rows.push(
    ['Szybkość ataku '+rank('attack'),Math.round(this.attackRate*100)+'%'],
    ['Zasięg ataku '+rank('range'),this.attackRange+' px'],
-   ['Wielostrzał '+rank('multishot'),this.multishot+' strzał na dzielnik'],
+   ['Wielostrzał '+rank('multishot'),this.multishot+' strzał na dzielnik (30°)'],
    ['Zasięg uniku '+rank('dashRange'),'+'+(this.dashRangeLevel*5)+'%'],
    ['Odnowienie uniku '+rank('dashCooldown'),'-'+(this.dashCooldownLevel*5)+'%'],
    ['Powalający strzał '+rank('knockback'),this.knockbackLevel+'%'],
@@ -1703,6 +1714,7 @@ class Meadow extends Phaser.Scene{
    ['Zasięg ataku '+rank('warriorConeRange'),Math.round(120*(1+this.warriorConeRange*.4))+' px'],
    ['Szerokość ataku '+rank('warriorConeWidth'),20+this.warriorConeWidth*14+'°'],
    ['Zasięg szarży '+rank('dashRange'),'+'+this.dashRangeLevel*5+'%'],
+   ['Zasięg odepchnięcia '+rank('warriorPushRange'),'+'+this.warriorPushRange*15+'%'],
    ['Odnowienie szarży '+rank('dashCooldown'),'-'+this.dashCooldownLevel*5+'%'],
    ['Blok '+rank('warriorBlock'),this.warriorBlock*5+'%'],
    ['Podwójna mikstura '+rank('warriorDoublePotion'),this.warriorDoublePotion*10+'%'],
@@ -1844,8 +1856,9 @@ class Meadow extends Phaser.Scene{
     case 'pickup':this.pickupRadius=Math.min(250,this.pickupRadius+50);break;
     case 'health':this.maxHealth++;this.health=Math.min(this.maxHealth,this.health+1);break;
     case 'potion':this.potionLevel=Math.min(5,this.potionLevel+1);break;
-    case 'multishot':this.multishot=Math.min(6,this.multishot+1);break;
+    case 'multishot':this.multishot=Math.min(11,this.multishot+2);break;
     case 'dashRange':this.dashRangeLevel=Math.min(5,this.dashRangeLevel+1);break;
+    case 'warriorPushRange':this.warriorPushRange=Math.min(5,this.warriorPushRange+1);break;
     case 'dashCooldown':this.dashCooldownLevel=Math.min(5,this.dashCooldownLevel+1);break;
     case 'knockback':this.knockbackLevel=Math.min(10,this.knockbackLevel+1);break;
     case 'attackDodge':this.attackDodgeLevel=Math.min(10,this.attackDodgeLevel+1);break;
