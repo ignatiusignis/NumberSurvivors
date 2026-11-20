@@ -1460,6 +1460,7 @@ class Meadow extends Phaser.Scene{
    this.heroSprite.setDisplaySize(76*(firing?1.07:1),76*(moving?1+Math.abs(stride)*.025:1));
    if(dashing)this.heroSprite.setAlpha(.82);else this.heroSprite.setAlpha(1);
   }
+  else if(this.classSprite){const facing=len?dx:this.classFacing.x;this.classSprite.setFlipX(facing<-.15);this.classSprite.y=-7+(len?Math.abs(Math.sin(now*.021))*2:0);this.classSprite.setAngle(len?Math.sin(now*.021)*2:0);this.classSprite.setAlpha(dashing?.83:1);}
   else if(this.heroVisual){this.heroVisual.setScale(dx<-.15?-1:1,1);this.heroBoots[0].y=10+(len?Math.sin(now*.018)*3:0);this.heroBoots[1].y=10-(len?Math.sin(now*.018)*3:0);}
   const mx=dashing?this.dashDirection.x:dx,my=dashing?this.dashDirection.y:dy;
   const speed=dashing?780*(1+this.dashRangeLevel*.05):220*this.moveMultiplier;
