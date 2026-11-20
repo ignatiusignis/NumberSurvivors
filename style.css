@@ -249,3 +249,30 @@ body:not(.touch-mode) #touch-controls{display:none!important}
 .difficulty-selection select{max-width:520px;width:100%;margin:0 auto;padding:7px;}
 .difficulty-selection button{max-width:520px;width:100%;margin:2px auto 0;padding:9px;}
 @media(max-height:420px){#main-menu:has(.character-select-panel:not([hidden])) .menu-scene{height:96vh;padding:8px 14px;}.character-select-panel:not([hidden]){gap:2px;}.character-choice{gap:2px;padding:4px;}.character-avatar{font-size:30px;}.character-choice strong{font-size:14px;}.character-choice small{font-size:10px;}.difficulty-selection{gap:2px;}.difficulty-selection select,.difficulty-selection button{padding:4px;}}
+
+/* v0.9.13: ekran wyboru bez nagłówka i z czytelnymi kartami */
+#main-menu:has(.character-select-panel:not([hidden])){padding:8px}
+#main-menu:has(.character-select-panel:not([hidden])) .menu-scene{width:min(1050px,100%);height:min(96dvh,820px);padding:clamp(9px,1.6vh,18px);overflow:auto;display:flex;flex-direction:column;justify-content:center}
+#main-menu:has(.character-select-panel:not([hidden])) .menu-crest,
+#main-menu:has(.character-select-panel:not([hidden])) #menu-title,
+#main-menu:has(.character-select-panel:not([hidden])) .menu-subtitle{display:none!important}
+#main-menu:has(.character-select-panel:not([hidden])) .menu-back{margin-top:4px}
+.character-select-panel:not([hidden]){display:flex;flex-direction:column;flex:1;min-height:0;gap:8px}
+.character-selection{flex:2;display:flex;align-items:stretch;gap:clamp(7px,1.6vw,18px);min-height:145px}
+.character-choice{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:10px 6px;border:2px solid #526e5b;border-radius:14px;background:#1b3229;cursor:pointer;transition:background .2s,border-color .2s,box-shadow .2s}
+.character-choice input{position:absolute;opacity:0;width:1px;height:1px}
+.character-choice img{width:min(100%,210px);height:clamp(85px,24vh,225px);object-fit:contain;image-rendering:auto;filter:drop-shadow(0 8px 10px #0007)}
+.character-choice strong{font:bold clamp(15px,2.7vw,25px) Arial,sans-serif;color:#fff1cc;text-align:center}
+.character-choice:has(input:checked){border-color:#ffe5a1;background:#304638;box-shadow:0 0 0 2px #ffe6a877,0 0 18px 4px #ffe8a055,0 0 42px 12px #ffe8a01f,inset 0 0 20px #e8ca6b1b}
+.character-choice:has(input:focus-visible){outline:3px solid white}
+.difficulty-selection{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:clamp(8px,1.5vh,14px);min-height:110px}
+.difficulty-selection h3{font:bold clamp(17px,2.8vh,24px) Arial,sans-serif;color:#f2d58e;margin:0}
+.difficulty-buttons{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:clamp(4px,1vw,10px)}
+.difficulty-buttons label{position:relative;cursor:pointer;min-width:0}
+.difficulty-buttons input{position:absolute;opacity:0}
+.difficulty-buttons span{display:flex;align-items:center;justify-content:center;min-height:clamp(40px,8vh,62px);padding:5px 3px;border:2px solid #718673;border-radius:10px;background:linear-gradient(#3a5540,#223a2c);color:#f3f2df;font:bold clamp(10px,1.5vw,15px) Arial,sans-serif;text-align:center}
+.difficulty-buttons input:checked+span{border-color:#ffe4a0;background:linear-gradient(#6e7042,#3f5936);box-shadow:0 0 12px #ffe5a055;color:#fff4bf}
+.difficulty-buttons input:focus-visible+span{outline:3px solid white}
+#difficulty-start.menu-primary{width:min(560px,100%);max-width:none;margin:3px auto 0;padding:clamp(10px,2vh,18px);border:2px solid #ffdf8b;border-bottom:5px solid #5e3e17;border-radius:12px;background:linear-gradient(180deg,#a87934,#66431e);box-shadow:0 0 20px #edba5b3d,inset 0 1px #fff0ae;color:#fff4c7;font:bold clamp(16px,2.7vw,25px) Georgia,serif;letter-spacing:.04em;text-shadow:0 2px 2px #37220c;cursor:pointer}
+@media(max-width:620px){.character-choice img{height:clamp(85px,20vh,155px)}.character-choice strong{font-size:clamp(12px,3vw,17px)}.difficulty-buttons{gap:4px}.difficulty-buttons span{font-size:10px;min-height:45px}.character-selection{min-height:125px}}
+@media(max-height:460px){.character-choice img{height:clamp(55px,17vh,90px)}.character-selection{min-height:85px}.difficulty-buttons span{min-height:30px}.difficulty-selection{gap:4px;min-height:80px}#difficulty-start.menu-primary{padding:6px}.character-select-panel:not([hidden]){gap:3px}}
