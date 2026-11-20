@@ -272,7 +272,7 @@ class Meadow extends Phaser.Scene{
    this.heroSprite.setOrigin(.5,.62);
   }
   this.classVisual=this.add.container(0,0).setVisible(false);this.player.add(this.classVisual);this.classSprite=null;
-  this.laserVisual=this.add.graphics().setDepth(9);this.meleeVisual=this.add.graphics().setDepth(9);this.chainVisual=this.add.graphics().setDepth(11);this.shieldVisual=this.add.graphics().setDepth(10);this.darkAuraVisual=this.add.graphics().setDepth(8);
+  this.laserVisual=this.add.graphics().setDepth(9);this.meleeVisual=this.add.graphics().setDepth(9);this.chainVisual=this.add.graphics().setDepth(11);this.shieldVisual=this.add.graphics().setDepth(10);this.darkAuraVisual=this.add.graphics().setDepth(8);this.mageShieldSprite=this.add.image(0,0,'mage_shield_active').setDisplaySize(96,96).setAlpha(.65).setDepth(9).setVisible(false);
   this.classFacing=new Phaser.Math.Vector2(1,0);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
@@ -1452,7 +1452,7 @@ class Meadow extends Phaser.Scene{
   }
   if(specialPressed&&this.characterClass==='dark_mage'&&this.darkGolem&&now-this.specialLast>=30000-this.darkTauntCooldown*2000){this.specialLast=now;this.darkTauntUntil=now+1000+this.darkTauntDuration*1000;this.showEffect('dark_mage_taunt',this.darkGolem.x,this.darkGolem.y,500,110);}
   const dashing=now<this.dashUntil;
-  if(this.heroSprite){
+  if(this.heroSprite&&this.characterClass==='archer'){
    const firing=now<(this.heroShootUntil||0);
    const facing=firing?this.heroAimX:len?dx:this.lastMove.x;
    this.heroSprite.setFlipX(facing<-.15);
@@ -1510,7 +1510,10 @@ class Meadow extends Phaser.Scene{
     const blocked=this.characterClass==='warrior'&&Math.random()<(.10+this.warriorBlock*.05);
     const dodged=this.characterClass==='archer'&&Math.random()<this.attackDodgeLevel*.01;
     if(!blocked&&!dodged){this.health-=enemy.boss?2:1;
-     if(this.characterClass==='mage'&&now-this.mageShieldLast>=Math.max(1000,6000-this.mageShieldCooldown*1000)){this.mageShieldLast=now;const r=45+this.mageShieldRange*12;this.showEffect('mage_shield_burst',this.player.x,this.player.y,300,r*2);for(const e of this.enemies)if(Math.hypot(e.x-this.player.x,e.y-this.player.y)<r+e.size)this.pushEnemy(e,55+this.mageShieldRange*15);}
+     const shieldReady=this.characterClass==='mage'&&now-this.mageShieldLast>=Math.max(1000,6000-this.mageShieldCooldown*1000);
+  this.mageShieldSprite.setVisible(shieldReady);
+  if(shieldReady){this.mageShieldSprite.setPosition(this.player.x,this.player.y).setAngle(Math.sin(now*.001)*7).setAlpha(.45+Math.sin(now*.006)*.12);
+this.mageShieldLast=now;const r=45+this.mageShieldRange*12;this.showEffect('mage_shield_burst',this.player.x,this.player.y,300,r*2);for(const e of this.enemies)if(Math.hypot(e.x-this.player.x,e.y-this.player.y)<r+e.size)this.pushEnemy(e,55+this.mageShieldRange*15);}
     }else if(blocked)this.showEffect('warrior_block',this.player.x,this.player.y,240,76);else this.showEffect('rogue_dodge',this.player.x,this.player.y,200,76);
     this.lastDamage=now;
    }
@@ -1808,7 +1811,7 @@ class Meadow extends Phaser.Scene{
    if(target&&d<target.size+35&&now-s.lastHit>=650/(1+this.darkSkeletonRate/6)){
     s.lastHit=now;this.showEffect('skeleton_attack',target.x,target.y,150,55);
     for(const p of this.active)if(this.enemies.includes(target)&&target.n%p===0)this.hit(target,p);
-    if(Math.random()<.05+this.darkFear*.05){target.fearedUntil=Math.max(target.fearedUntil||0,now+2000);this.showEffect('dark_mage_fear',target.x,target.y,220,70);}
+    if(this.enemies.includes(target)&&Math.random()<.05+this.darkFear*.05){target.fearedUntil=Math.max(target.fearedUntil||0,now+2000);this.showEffect('dark_mage_fear',target.x,target.y,220,70);}
    }
   }
   if(this.darkGolemLevel>0){
@@ -1847,7 +1850,7 @@ class Meadow extends Phaser.Scene{
   this.heroVisual?.setVisible(false);this.heroSprite?.setVisible(this.characterClass==='archer');
   const ability=this.characterClass==='dark_mage'?'ODWRÓĆ UWAGĘ':this.characterClass==='mage'?'OGŁUSZENIE':this.characterClass==='warrior'?'SZARŻA':'UNIK';
   this.dashHint?.setText(ability);const touch=document.getElementById('touch-dash');if(touch)touch.textContent=ability;
-  this.classVisual.setVisible(false);if(this.classSprite){this.classSprite.destroy();this.classSprite=null;}
+  this.mageShieldSprite?.setVisible(false);this.classVisual.setVisible(false);if(this.classSprite){this.classSprite.destroy();this.classSprite=null;}
   if(this.characterClass!=='archer'){
    const key=this.characterClass==='dark_mage'?'dark_mage':this.characterClass==='mage'?'blue_mage_new':'warrior_new';
    if(this.textures.exists(key)){this.classSprite=this.add.image(0,-7,key).setDisplaySize(76,76).setOrigin(.5,.62);this.player.add(this.classSprite);}
