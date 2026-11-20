@@ -1605,7 +1605,26 @@ class Meadow extends Phaser.Scene{
    {id:'dashCooldown',title:'Odnowienie uniku (spacja)',level:this.dashCooldownLevel,max:5,effect:'−5% czasu odnowienia'},
    {id:'knockback',title:'Powalający strzał',level:this.knockbackLevel,max:10,effect:'+1% szansy na zatrzymanie zwykłego wroga na 1 s'},
    {id:'attackDodge',title:'Uniknięcie ataku',level:this.attackDodgeLevel,max:10,effect:'+1% szansy na uniknięcie obrażeń'}
-  ].filter(u=>this.characterClass==='archer'||['movement','pickup','health','potion'].includes(u.id));
+  ].concat(this.characterClass==='mage'?[
+   {id:'mageAttackRate',title:'Częstotliwość piorunów',level:this.mageAttackRate,max:10,effect:'+10% częstotliwości obrażeń'},
+   {id:'mageAttackRange',title:'Zasięg wiązki',level:this.mageAttackRange,max:5,effect:'+50 px'},
+   {id:'mageChainChance',title:'Szansa przeskoku',level:this.mageChainChance,max:6,effect:'+15% szansy'},
+   {id:'mageChainCount',title:'Liczba przeskoków',level:this.mageChainCount,max:4,effect:'+1 możliwy przeskok'},
+   {id:'mageStunRange',title:'Zasięg ogłuszenia (spacja)',level:this.mageStunRange,max:5,effect:'+15 px'},
+   {id:'mageStunDuration',title:'Czas ogłuszenia',level:this.mageStunDuration,max:5,effect:'+0,2 s'},
+   {id:'mageStunCooldown',title:'Odnowienie ogłuszenia',level:this.mageStunCooldown,max:5,effect:'−5% czasu odnowienia'},
+   {id:'mageShieldRange',title:'Zasięg tarczy statycznej',level:this.mageShieldRange,max:5,effect:'+12 px'},
+   {id:'mageShieldCooldown',title:'Ładowanie tarczy',level:this.mageShieldCooldown,max:5,effect:'−1 s'}
+  ]:this.characterClass==='warrior'?[
+   {id:'warriorConeRange',title:'Zasięg miecza',level:this.warriorConeRange,max:5,effect:'+12 px'},
+   {id:'warriorConeWidth',title:'Szerokość stożka',level:this.warriorConeWidth,max:5,effect:'+6°'},
+   {id:'dashRange',title:'Zasięg szarży',level:this.dashRangeLevel,max:5,effect:'+5%'},
+   {id:'dashCooldown',title:'Odnowienie szarży',level:this.dashCooldownLevel,max:5,effect:'−5% czasu'},
+   {id:'warriorBlock',title:'Blok',level:this.warriorBlock,max:5,effect:'+5% szansy'},
+   {id:'warriorDoublePotion',title:'Podwójna mikstura',level:this.warriorDoublePotion,max:5,effect:'+10% szansy'},
+   {id:'warriorAttackRate',title:'Szybkość zamachu',level:this.warriorAttackRate,max:10,effect:'+10% częstotliwości'},
+   {id:'warriorIFrames',title:'Nietykalność po obrażeniach',level:this.warriorIFrames,max:10,effect:'+0,1 s'}
+  ]:[]).filter(u=>['movement','pickup','health','potion'].includes(u.id)||(this.characterClass==='archer'&&!['mage','warrior'].includes(u.id))||(this.characterClass==='warrior'&&['warriorConeRange','warriorConeWidth','dashRange','dashCooldown','warriorBlock','warriorDoublePotion','warriorAttackRate','warriorIFrames'].includes(u.id))||(this.characterClass==='mage'&&u.id.startsWith('mage')));
  }
  statsMarkup(){
   const levels=this.upgradeLevels();
@@ -1753,6 +1772,21 @@ class Meadow extends Phaser.Scene{
     case 'dashCooldown':this.dashCooldownLevel=Math.min(5,this.dashCooldownLevel+1);break;
     case 'knockback':this.knockbackLevel=Math.min(10,this.knockbackLevel+1);break;
     case 'attackDodge':this.attackDodgeLevel=Math.min(10,this.attackDodgeLevel+1);break;
+    case 'mageAttackRate':this.mageAttackRate=Math.min(10,this.mageAttackRate+1);break;
+    case 'mageAttackRange':this.mageAttackRange=Math.min(5,this.mageAttackRange+1);break;
+    case 'mageChainChance':this.mageChainChance=Math.min(6,this.mageChainChance+1);break;
+    case 'mageChainCount':this.mageChainCount=Math.min(4,this.mageChainCount+1);break;
+    case 'mageStunRange':this.mageStunRange=Math.min(5,this.mageStunRange+1);break;
+    case 'mageStunDuration':this.mageStunDuration=Math.min(5,this.mageStunDuration+1);break;
+    case 'mageStunCooldown':this.mageStunCooldown=Math.min(5,this.mageStunCooldown+1);break;
+    case 'mageShieldRange':this.mageShieldRange=Math.min(5,this.mageShieldRange+1);break;
+    case 'mageShieldCooldown':this.mageShieldCooldown=Math.min(5,this.mageShieldCooldown+1);break;
+    case 'warriorConeRange':this.warriorConeRange=Math.min(5,this.warriorConeRange+1);break;
+    case 'warriorConeWidth':this.warriorConeWidth=Math.min(5,this.warriorConeWidth+1);break;
+    case 'warriorBlock':this.warriorBlock=Math.min(5,this.warriorBlock+1);break;
+    case 'warriorDoublePotion':this.warriorDoublePotion=Math.min(5,this.warriorDoublePotion+1);break;
+    case 'warriorAttackRate':this.warriorAttackRate=Math.min(10,this.warriorAttackRate+1);break;
+    case 'warriorIFrames':this.warriorIFrames=Math.min(10,this.warriorIFrames+1);break;
    }
   }
   this.pendingUpgrades=Math.max(0,this.pendingUpgrades-1);
