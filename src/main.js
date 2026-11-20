@@ -61,7 +61,7 @@ const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 class Meadow extends Phaser.Scene{
  constructor(){super('Meadow');}
  preload(){
-  const sprites=['blue_mage','warrior','mage_lightning_beam','mage_chain_lightning','mage_stun_small','mage_stun_medium','mage_stun_large','mage_static_shield','mage_shield_bubble','warrior_cone_small','warrior_cone_medium','warrior_cone_large','warrior_cone_max','warrior_charge_01','warrior_block','warrior_invulnerability','rogue_arrow','rogue_dash','rogue_dodge','rogue_hit_spark','rogue_invulnerability','rogue_multishot','rogue_stun','rogue_archer','slime_green','slime_bunny','slime_horned','slime_winged','slime_sword','slime_spear','slime_axe','slime_king'];
+  const sprites=['blue_mage','warrior','mage_lightning_beam','mage_chain_lightning','mage_stun_small','mage_stun_medium','mage_stun_large','mage_static_shield','mage_shield_bubble','warrior_cone_small','warrior_cone_medium','warrior_cone_large','warrior_cone_max','warrior_charge_01','warrior_block','warrior_invulnerability','rogue_arrow','rogue_dash','rogue_dodge','rogue_hit_spark','rogue_invulnerability','rogue_multishot','rogue_stun','rogue_archer_new','blue_mage_new','warrior_new','dark_mage','skeleton','skeleton_attack','golem','golem_attack','dark_aura_small','dark_aura_medium','dark_aura_large','dark_magic_circle','dark_mage_fear','dark_mage_lifesteal','dark_mage_taunt','mage_shield_active','mage_shield_burst','warrior_sword_swing','warrior_sword_swing_2','warrior_charge','warrior_charge_fast','rogue_archer','slime_green','slime_bunny','slime_horned','slime_winged','slime_sword','slime_spear','slime_axe','slime_king'];
   for(const name of sprites)this.load.image(name,'assets/sprites/'+name+'.png?v=093');
  }
  create(){
@@ -272,12 +272,12 @@ class Meadow extends Phaser.Scene{
    this.heroSprite.setOrigin(.5,.62);
   }
   this.classVisual=this.add.container(0,0).setVisible(false);this.player.add(this.classVisual);this.classSprite=null;
-  this.laserVisual=this.add.graphics().setDepth(9);this.meleeVisual=this.add.graphics().setDepth(9);this.chainVisual=this.add.graphics().setDepth(11);this.shieldVisual=this.add.graphics().setDepth(10);
+  this.laserVisual=this.add.graphics().setDepth(9);this.meleeVisual=this.add.graphics().setDepth(9);this.chainVisual=this.add.graphics().setDepth(11);this.shieldVisual=this.add.graphics().setDepth(10);this.darkAuraVisual=this.add.graphics().setDepth(8);
   this.classFacing=new Phaser.Math.Vector2(1,0);
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
   this.highestRegion=1;this.teleportTesting=false;
-  this.active=[2];this.locked=[];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.manualPause=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.multishot=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.potionLevel=0;this.dashRangeLevel=0;this.dashCooldownLevel=0;this.warriorPushRange=0;this.warriorConeRange=0;this.warriorConeWidth=0;this.warriorBlock=0;this.warriorDoublePotion=0;this.warriorIFrames=0;this.mageChainChance=0;this.mageChainCount=0;this.mageStunRange=0;this.mageStunDuration=0;this.mageStunCooldown=0;this.mageShieldRange=0;this.mageShieldCooldown=0;this.mageAttackRate=0;this.mageAttackRange=0;this.warriorAttackRate=0;this.specialLast=-10000;this.mageShieldLast=-10000;this.mageStunUntil=0;this.specialEffects=[];this.mageChains=new Map();this.chargeHitEnemies=new Set();this.knockbackLevel=0;this.attackDodgeLevel=0;this.rerollsLeft=3;this.drops=[];this.special=null;this.eventIndex=0;this.warningUntil=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
+  this.active=[2];this.locked=[];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.manualPause=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.multishot=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.potionLevel=0;this.dashRangeLevel=0;this.dashCooldownLevel=0;this.warriorPushRange=0;this.darkSkeletonCount=0;this.darkSkeletonRate=0;this.darkFear=0;this.darkAuraRange=0;this.darkAuraRate=0;this.darkLifesteal=0;this.darkGolemLevel=0;this.darkTauntDuration=0;this.darkTauntCooldown=0;this.darkSkeletons=[];this.darkGolem=null;this.darkAuraLast=0;this.darkTauntUntil=0;this.warriorSecondSwingAt=0;this.warriorSwingAngle=0;this.warriorConeRange=0;this.warriorConeWidth=0;this.warriorBlock=0;this.warriorDoublePotion=0;this.warriorIFrames=0;this.mageChainChance=0;this.mageChainCount=0;this.mageStunRange=0;this.mageStunDuration=0;this.mageStunCooldown=0;this.mageShieldRange=0;this.mageShieldCooldown=0;this.mageAttackRate=0;this.mageAttackRange=0;this.warriorAttackRate=0;this.specialLast=-10000;this.mageShieldLast=-10000;this.mageStunUntil=0;this.specialEffects=[];this.mageChains=new Map();this.chargeHitEnemies=new Set();this.knockbackLevel=0;this.attackDodgeLevel=0;this.rerollsLeft=3;this.drops=[];this.special=null;this.eventIndex=0;this.warningUntil=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
   // Stałe elementy HUD: paski w lewym górnym rogu, dzielniki i unik na dole.
   const ui=(obj)=>obj.setScrollFactor(0).setDepth(100);
   const txt=(x,y,s,size=16)=>ui(this.add.text(x,y,s,{fontFamily:'Arial',fontSize:size+'px',fontStyle:'bold',color:'#ffffff',stroke:'#233c27',strokeThickness:3}));
@@ -1444,12 +1444,13 @@ class Meadow extends Phaser.Scene{
   if(len)this.classFacing.set(dx,dy);
   const specialPressed=this.isPressed('space')||this.touchDash;
   const specialCooldown=this.characterClass==='warrior'?4000*(1-this.dashCooldownLevel*.05):4000*(1-this.dashCooldownLevel*.05);
-  const dash=specialPressed&&this.characterClass!=='mage'&&now-this.lastDash>specialCooldown;
-  if(dash){this.lastDash=now;this.chargeHitEnemies.clear();this.dashUntil=now+220;this.invulnUntil=now+220;this.dashDirection.copy(this.lastMove);if(this.characterClass==='warrior')this.showEffect('warrior_charge_01',this.player.x,this.player.y,240,88);else this.showEffect('rogue_dash',this.player.x,this.player.y,220,90);}
+  const dash=specialPressed&&(this.characterClass==='archer'||this.characterClass==='warrior')&&now-this.lastDash>specialCooldown;
+  if(dash){this.lastDash=now;this.chargeHitEnemies.clear();this.dashUntil=now+220;this.invulnUntil=now+220;this.dashDirection.copy(this.lastMove);if(this.characterClass==='warrior')this.showEffect('warrior_charge',this.player.x,this.player.y,240,115);else this.showEffect('rogue_dash',this.player.x,this.player.y,220,90);}
   if(specialPressed&&this.characterClass==='mage'&&now-this.specialLast>8000*(1-this.mageStunCooldown*.05)){
    this.specialLast=now;const radius=75+this.mageStunRange*15;this.showEffect('mage_stun_large',this.player.x,this.player.y,400,radius*2);
    for(const e of this.enemies)if(!e.boss&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<radius+e.size)e.stunnedUntil=Math.max(e.stunnedUntil||0,now+800+this.mageStunDuration*200);
   }
+  if(specialPressed&&this.characterClass==='dark_mage'&&this.darkGolem&&now-this.specialLast>=30000-this.darkTauntCooldown*2000){this.specialLast=now;this.darkTauntUntil=now+1000+this.darkTauntDuration*1000;this.showEffect('dark_mage_taunt',this.darkGolem.x,this.darkGolem.y,500,110);}
   const dashing=now<this.dashUntil;
   if(this.heroSprite){
    const firing=now<(this.heroShootUntil||0);
@@ -1492,7 +1493,10 @@ class Meadow extends Phaser.Scene{
    if(!enemy.swarm&&!enemy.boss&&enemy.bornMinute<minute&&(enemy.x<bound.left-400||enemy.x>bound.right+400||enemy.y<bound.top-300||enemy.y>bound.bottom+300)){enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);continue;}
    // Przeciwnik ściga gracza niezależnie od odległości i rozmiaru okna.
    const enemySpeed=(enemy.boss?38:55)*((enemy.boss||enemy.swarm)&&now-enemy.bornAt<3000?2:1);
-   if(now>=(enemy.stunnedUntil||0))this.steerEnemy(enemy,dt,enemySpeed);enemy.view.setPosition(enemy.x,enemy.y);
+   if(now>=(enemy.stunnedUntil||0)){
+    if(this.characterClass==='dark_mage'&&this.darkGolem&&now<this.darkTauntUntil){const oldX=this.player.x,oldY=this.player.y;this.player.x=this.darkGolem.x;this.player.y=this.darkGolem.y;this.steerEnemy(enemy,dt,enemySpeed*(now<(enemy.fearedUntil||0)?.5:1));this.player.x=oldX;this.player.y=oldY;}
+    else this.steerEnemy(enemy,dt,enemySpeed*(now<(enemy.fearedUntil||0)?.5:1));
+   }enemy.view.setPosition(enemy.x,enemy.y);
    if(enemy.sprite){
     const phase=now*.006+enemy.animPhase;
     const bounce=Math.abs(Math.sin(phase));
@@ -1503,7 +1507,7 @@ class Meadow extends Phaser.Scene{
     else enemy.sprite.clearTint();
    }
    if(distance<enemy.size+12&&now-this.lastDamage>(this.characterClass==='warrior'?1500+this.warriorIFrames*100:850)&&now>this.invulnUntil){
-    const blocked=this.characterClass==='warrior'&&Math.random()<this.warriorBlock*.05;
+    const blocked=this.characterClass==='warrior'&&Math.random()<(.10+this.warriorBlock*.05);
     const dodged=this.characterClass==='archer'&&Math.random()<this.attackDodgeLevel*.01;
     if(!blocked&&!dodged){this.health-=enemy.boss?2:1;
      if(this.characterClass==='mage'&&now-this.mageShieldLast>=Math.max(1000,6000-this.mageShieldCooldown*1000)){this.mageShieldLast=now;const r=45+this.mageShieldRange*12;this.showEffect('mage_static_shield',this.player.x,this.player.y,300,r*2);for(const e of this.enemies)if(Math.hypot(e.x-this.player.x,e.y-this.player.y)<r+e.size)this.pushEnemy(e,55+this.mageShieldRange*15);}
@@ -1512,7 +1516,8 @@ class Meadow extends Phaser.Scene{
    }
   }
   if(profiling)enemyMs=performance.now()-enemyStart;
-  this.laserVisual.clear();this.meleeVisual.clear();this.chainVisual.clear();this.shieldVisual.clear();
+  this.laserVisual.clear();this.meleeVisual.clear();this.chainVisual.clear();this.shieldVisual.clear();this.darkAuraVisual.clear();
+  if(this.characterClass==='dark_mage')this.updateDarkSummons(now,dt);
   if(this.characterClass==='mage'&&now-this.mageShieldLast>=Math.max(1000,6000-this.mageShieldCooldown*1000)){
    const x=this.player.x,y=this.player.y,r=34+Math.sin(now*.005)*2;
    this.shieldVisual.lineStyle(3,0x69eaff,.75).strokeCircle(x,y,r);
@@ -1520,7 +1525,9 @@ class Meadow extends Phaser.Scene{
    for(let k=0;k<5;k++){const a=k*Math.PI*2/5+now*.0012;this.shieldVisual.fillStyle(0xc9ffff,.8).fillCircle(x+Math.cos(a)*r,y+Math.sin(a)*r,2.4);}
   }
   const attackColors=[0x53dfff,0x79ff70,0xffd85a,0xe189ff,0xff7272,0x69e7ff,0xffffff,0xffa958];
+  if(this.characterClass==='warrior'){this.updateWarriorSwing(now);if(this.warriorSecondSwingAt&&now>=this.warriorSecondSwingAt){this.performWarriorSwing(this.warriorSwingAngle,now);this.warriorSecondSwingAt=0;}}
   for(const [slot,p] of this.active.entries()){
+   if(this.characterClass==='dark_mage'||this.characterClass==='warrior')continue;
    const color=attackColors[slot%attackColors.length];
    if(this.characterClass==='mage'){
     const range=450+this.mageAttackRange*50;
@@ -1563,41 +1570,7 @@ class Meadow extends Phaser.Scene{
    }
    const rate=this.characterClass==='warrior'?1+this.warriorAttackRate*.1:this.attackRate;
    if(now-(this.lastAttack.get(p)||0)<650/rate)continue;
-   if(this.characterClass==='warrior'){
-    const range=120*(1+this.warriorConeRange*.4);
-    const half=(10+this.warriorConeWidth*7)*Math.PI/180;
-    const px=this.player.x,py=this.player.y;
-    // Jeden najbliższy poprawny przeciwnik wyznacza kierunek zamachu dla danego dzielnika.
-    const targets=this.enemies.filter(e=>e.n%p===0&&Math.hypot(e.x-px,e.y-py)<=range+e.size);
-    if(!targets.length)continue;
-    targets.sort((a,b)=>Math.hypot(a.x-px,a.y-py)-Math.hypot(b.x-px,b.y-py));
-    const t=targets[0],angle=Math.atan2(t.y-py,t.x-px);
-    const start=angle-half,end=angle+half;
-    // Obszar jest rysowany od nowa z faktycznym kątem ulepszenia (20°–90°).
-    // Nie nakładamy stałej grafiki wąskiego stożka, która myliła gracza.
-    this.meleeVisual.fillStyle(color,.30);
-    this.meleeVisual.beginPath();
-    this.meleeVisual.moveTo(px,py);
-    this.meleeVisual.arc(px,py,range,start,end,false);
-    this.meleeVisual.closePath();
-    this.meleeVisual.fillPath();
-    this.meleeVisual.lineStyle(3,color,.95);
-    this.meleeVisual.beginPath();
-    this.meleeVisual.arc(px,py,range,start,end,false);
-    this.meleeVisual.strokePath();
-    // Trafiamy WSZYSTKICH wrogów przecinających obszar, a nie tylko cel kierunkowy.
-    // Uwzględniamy promień przeciwnika także przy bocznej krawędzi stożka.
-    for(const e of [...this.enemies]){
-     if(e.n%p!==0)continue;
-     const ex=e.x-px,ey=e.y-py,dist=Math.hypot(ex,ey);
-     if(dist>range+e.size)continue;
-     const diff=Math.abs(Math.atan2(Math.sin(Math.atan2(ey,ex)-angle),Math.cos(Math.atan2(ey,ex)-angle)));
-     const margin=dist>e.size?Math.asin(Math.min(1,e.size/dist)):Math.PI;
-     if(diff<=half+margin)this.hit(e,p);
-    }
-    this.lastAttack.set(p,now);
-    continue;
-   }
+   if(this.characterClass==='warrior'||this.characterClass==='dark_mage')continue;
    const targets=this.enemies.filter(e=>e.n%p===0&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<this.attackRange).sort((a,b)=>Phaser.Math.Distance.Between(a.x,a.y,this.player.x,this.player.y)-Phaser.Math.Distance.Between(b.x,b.y,this.player.x,this.player.y));
    if(targets.length){
     const main=targets[0],cx=this.player.x,cy=this.player.y,base=Math.atan2(main.y-cy,main.x-cx);
@@ -1754,6 +1727,81 @@ class Meadow extends Phaser.Scene{
   document.getElementById('end-symbol').textContent=won?'▣':'☠';
   document.getElementById('end-title').textContent=won?'Gratulacje!':'Umarłeś!';
   document.getElementById('end-message').textContent=won?'Znalazłeś teczkę z czerwonymi paskami!':'Nie udało się przetrwać. Spróbuj ponownie!';
+ }
+ updateWarriorSwing(now){
+  const cooldown=650/(1+this.warriorAttackRate*.1);
+  if(now-(this.warriorLastSwing||0)<cooldown)return;
+  const px=this.player.x,py=this.player.y,range=120*(1+this.warriorConeRange*.4);
+  const targets=this.enemies.filter(e=>this.active.some(p=>e.n%p===0)&&Math.hypot(e.x-px,e.y-py)<=range+e.size);
+  if(!targets.length)return;
+  targets.sort((a,b)=>Math.hypot(a.x-px,a.y-py)-Math.hypot(b.x-px,b.y-py));
+  const angle=Math.atan2(targets[0].y-py,targets[0].x-px);
+  this.performWarriorSwing(angle,now);
+  this.warriorLastSwing=now;
+  if(Math.random()<.25){this.warriorSecondSwingAt=now+170;this.warriorSwingAngle=angle;}
+ }
+ performWarriorSwing(angle,now){
+  const px=this.player.x,py=this.player.y,range=120*(1+this.warriorConeRange*.4),half=(10+this.warriorConeWidth*7)*Math.PI/180;
+  this.meleeVisual.fillStyle(0xffd277,.28);
+  this.meleeVisual.beginPath();this.meleeVisual.moveTo(px,py);this.meleeVisual.arc(px,py,range,angle-half,angle+half,false);this.meleeVisual.closePath();this.meleeVisual.fillPath();
+  this.meleeVisual.lineStyle(3,0xffe5a0,.9);this.meleeVisual.beginPath();this.meleeVisual.arc(px,py,range,angle-half,angle+half,false);this.meleeVisual.strokePath();
+  this.showEffect('warrior_sword_swing',px+Math.cos(angle)*range*.48,py+Math.sin(angle)*range*.48,190,Math.min(range,210),angle*180/Math.PI);
+  for(const e of [...this.enemies]){
+   const ex=e.x-px,ey=e.y-py,d=Math.hypot(ex,ey);
+   if(d>range+e.size)continue;
+   const diff=Math.abs(Math.atan2(Math.sin(Math.atan2(ey,ex)-angle),Math.cos(Math.atan2(ey,ex)-angle)));
+   if(diff>half+(d>e.size?Math.asin(Math.min(1,e.size/d)):Math.PI))continue;
+   for(const p of this.active)if(this.enemies.includes(e)&&e.n%p===0)this.hit(e,p);
+  }
+ }
+ updateDarkSummons(now,dt){
+  const px=this.player.x,py=this.player.y,range=90+this.darkAuraRange*6;
+  this.darkAuraVisual.fillStyle(0x5a1c80,.17);this.darkAuraVisual.fillCircle(px,py,range);
+  this.darkAuraVisual.lineStyle(3,0xbb70ed,.75);this.darkAuraVisual.strokeCircle(px,py,range);
+  for(let k=0;k<8;k++){const a=k*Math.PI/4+now*.0003;this.darkAuraVisual.fillStyle(0xc887ff,.7);this.darkAuraVisual.fillCircle(px+Math.cos(a)*range,py+Math.sin(a)*range,2.5);}
+  if(now-this.darkAuraLast>=650/(1+this.darkAuraRate*.2)){
+   this.darkAuraLast=now;
+   for(const e of [...this.enemies])if(Math.hypot(e.x-px,e.y-py)<=range+e.size){
+    let damaged=false;
+    for(const p of this.active)if(this.enemies.includes(e)&&e.n%p===0){this.hit(e,p);damaged=true;}
+    if(damaged&&Math.random()<this.darkLifesteal*.005&&this.health<this.maxHealth){this.health++;this.showEffect('dark_mage_lifesteal',px,py,260,70);}
+   }
+  }
+  const count=2+this.darkSkeletonCount;
+  while(this.darkSkeletons.length<count){
+   const i=this.darkSkeletons.length,a=i*Math.PI*2/count;
+   const x=px+Math.cos(a)*55,y=py+Math.sin(a)*55;
+   const sprite=this.add.image(x,y,'skeleton').setDisplaySize(54,54).setDepth(9);
+   this.darkSkeletons.push({x,y,sprite,lastHit:-1000,index:i});
+  }
+  for(const s of this.darkSkeletons){
+   const targets=this.enemies.filter(e=>this.active.some(p=>e.n%p===0));
+   targets.sort((a,b)=>Math.hypot(a.x-s.x,a.y-s.y)-Math.hypot(b.x-s.x,b.y-s.y));
+   const target=targets[0];
+   const angle=s.index*Math.PI*2/count+now*.00035;
+   const destX=target?target.x:px+Math.cos(angle)*60,destY=target?target.y:py+Math.sin(angle)*60;
+   const dx=destX-s.x,dy=destY-s.y,d=Math.hypot(dx,dy)||1;
+   if(d>target?.size+22){const step=Math.min(d,125*dt);s.x+=dx/d*step;s.y+=dy/d*step;}
+   s.sprite.setPosition(s.x,s.y).setFlipX(dx<0);
+   if(target&&d<target.size+35&&now-s.lastHit>=650/(1+this.darkSkeletonRate/6)){
+    s.lastHit=now;this.showEffect('skeleton_attack',target.x,target.y,150,55);
+    for(const p of this.active)if(this.enemies.includes(target)&&target.n%p===0)this.hit(target,p);
+    if(Math.random()<.05+this.darkFear*.05){target.fearedUntil=Math.max(target.fearedUntil||0,now+2000);this.showEffect('dark_mage_fear',target.x,target.y,220,70);}
+   }
+  }
+  if(this.darkGolemLevel>0){
+   if(!this.darkGolem){const sprite=this.add.image(px+75,py,'golem').setDisplaySize(86,86).setDepth(9);this.darkGolem={x:px+75,y:py,sprite,lastHit:-1000};}
+   const g=this.darkGolem,targets=this.enemies.filter(e=>this.active.some(p=>e.n%p===0));
+   targets.sort((a,b)=>Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(b.x-g.x,b.y-g.y));
+   const t=targets[0],dx=(t?t.x:px+70)-g.x,dy=(t?t.y:py)-g.y,d=Math.hypot(dx,dy)||1;
+   if(d>(t?t.size+35:10)){const step=Math.min(d,100*dt);g.x+=dx/d*step;g.y+=dy/d*step;}
+   g.sprite.setPosition(g.x,g.y).setFlipX(dx<0);
+   if(now<this.darkTauntUntil){g.sprite.setTint(0xffb9fa);this.darkAuraVisual.lineStyle(3,0xe19bff,.9);this.darkAuraVisual.strokeCircle(g.x,g.y,52);}else g.sprite.clearTint();
+   if(t&&d<t.size+47&&now-g.lastHit>=650/(1+(this.darkGolemLevel-1)*.25)){
+    g.lastHit=now;this.showEffect('golem_attack',t.x,t.y,170,78);
+    for(const p of this.active)if(this.enemies.includes(t)&&t.n%p===0)this.hit(t,p);
+   }
+  }
  }
  showEffect(key,x,y,duration=240,size=110,angle=0){
   if(!this.textures.exists(key))return;
