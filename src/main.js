@@ -1052,7 +1052,7 @@ class Meadow extends Phaser.Scene{
   const image=this.add.image(ox,oy,textureKey).setOrigin(0).setDepth(-10);
   this.terrainChunks.set(key,image);
  }
- slotCount(){return 1+Number(this.level>=10)+Number(this.level>=20)+Number(this.level>=30);}
+ slotCount(){return 1+Number(this.level>=10)+Number(this.level>=20)+Number(this.level>=30)+Number(this.level>=40);}
  lockLimit(){return this.slotCount()-1;}
  selectPrime(p){
   if(this.locked.includes(p)||this.active.includes(p))return;
@@ -1501,7 +1501,7 @@ class Meadow extends Phaser.Scene{
     if(now<enemy.hitUntil)enemy.sprite.setTint(0xffd1d1);
     else enemy.sprite.clearTint();
    }
-   if(distance<enemy.size+12&&now-this.lastDamage>(this.characterClass==='warrior'?500+this.warriorIFrames*100:850)&&now>this.invulnUntil){
+   if(distance<enemy.size+12&&now-this.lastDamage>(this.characterClass==='warrior'?1500+this.warriorIFrames*100:850)&&now>this.invulnUntil){
     const blocked=this.characterClass==='warrior'&&Math.random()<this.warriorBlock*.05;
     const dodged=this.characterClass==='archer'&&Math.random()<this.attackDodgeLevel*.01;
     if(!blocked&&!dodged){this.health-=enemy.boss?2:1;
@@ -1545,7 +1545,7 @@ class Meadow extends Phaser.Scene{
      chain=chain.filter(e=>this.enemies.includes(e)&&e.n%p===0);
      // Wolne miejsca w łańcuchu można uzupełnić; każda próba ma własną szansę.
      while(chain.length&&chain.length<1+this.mageChainCount){
-      if(Math.random()>=this.mageChainChance*.15)break;
+      if(Math.random()>=(.10+this.mageChainChance*.15))break;
       const last=chain[chain.length-1];
       const candidates=this.enemies.filter(e=>!chain.includes(e)&&e.n%p===0&&Math.hypot(e.x-last.x,e.y-last.y)<=range);
       candidates.sort((a,b)=>Math.hypot(a.x-last.x,a.y-last.y)-Math.hypot(b.x-last.x,b.y-last.y));
@@ -1563,7 +1563,7 @@ class Meadow extends Phaser.Scene{
    const rate=this.characterClass==='warrior'?1+this.warriorAttackRate*.1:this.attackRate;
    if(now-(this.lastAttack.get(p)||0)<650/rate)continue;
    if(this.characterClass==='warrior'){
-    const range=90*(1+this.warriorConeRange*.4),half=(10+this.warriorConeWidth*7)*Math.PI/180;
+    const range=120*(1+this.warriorConeRange*.4),half=(10+this.warriorConeWidth*7)*Math.PI/180;
     const targets=this.enemies.filter(e=>e.n%p===0&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<range+20);
     if(!targets.length)continue;
     targets.sort((a,b)=>Math.hypot(a.x-this.player.x,a.y-this.player.y)-Math.hypot(b.x-this.player.x,b.y-this.player.y));
@@ -1636,7 +1636,7 @@ class Meadow extends Phaser.Scene{
   ].concat(this.characterClass==='mage'?[
    {id:'mageAttackRate',title:'Częstotliwość piorunów',level:this.mageAttackRate,max:10,effect:'+10% częstotliwości obrażeń'},
    {id:'mageAttackRange',title:'Zasięg wiązki',level:this.mageAttackRange,max:5,effect:'+50 px'},
-   {id:'mageChainChance',title:'Szansa przeskoku',level:this.mageChainChance,max:6,effect:'+15% szansy'},
+   {id:'mageChainChance',title:'Szansa przeskoku',level:this.mageChainChance,max:6,effect:'+15% szansy (start 10%)'},
    {id:'mageChainCount',title:'Liczba przeskoków',level:this.mageChainCount,max:4,effect:'+1 możliwy przeskok'},
    {id:'mageStunRange',title:'Zasięg ogłuszenia (spacja)',level:this.mageStunRange,max:5,effect:'+15 px'},
    {id:'mageStunDuration',title:'Czas ogłuszenia',level:this.mageStunDuration,max:5,effect:'+0,2 s'},
@@ -1677,18 +1677,18 @@ class Meadow extends Phaser.Scene{
   );
   if(this.characterClass==='warrior')rows.push(
    ['Szybkość ataku '+rank('warriorAttackRate'),Math.round((1+this.warriorAttackRate*.1)*100)+'%'],
-   ['Zasięg ataku '+rank('warriorConeRange'),Math.round(90*(1+this.warriorConeRange*.4))+' px'],
+   ['Zasięg ataku '+rank('warriorConeRange'),Math.round(120*(1+this.warriorConeRange*.4))+' px'],
    ['Szerokość ataku '+rank('warriorConeWidth'),20+this.warriorConeWidth*14+'°'],
    ['Zasięg szarży '+rank('dashRange'),'+'+this.dashRangeLevel*5+'%'],
    ['Odnowienie szarży '+rank('dashCooldown'),'-'+this.dashCooldownLevel*5+'%'],
    ['Blok '+rank('warriorBlock'),this.warriorBlock*5+'%'],
    ['Podwójna mikstura '+rank('warriorDoublePotion'),this.warriorDoublePotion*10+'%'],
-   ['Nietykalność po trafieniu '+rank('warriorIFrames'),(0.5+this.warriorIFrames*.1).toFixed(1)+' s']
+   ['Nietykalność po trafieniu '+rank('warriorIFrames'),(1.5+this.warriorIFrames*.1).toFixed(1)+' s']
   );
   if(this.characterClass==='mage')rows.push(
    ['Częstotliwość piorunów '+rank('mageAttackRate'),Math.round((1+this.mageAttackRate*.1)*100)+'%'],
    ['Zasięg wiązki '+rank('mageAttackRange'),450+this.mageAttackRange*50+' px'],
-   ['Szansa przeskoku '+rank('mageChainChance'),this.mageChainChance*15+'%'],
+   ['Szansa przeskoku '+rank('mageChainChance'),(10+this.mageChainChance*15)+'%'],
    ['Maks. liczba przeskoków '+rank('mageChainCount'),this.mageChainCount],
    ['Zasięg ogłuszenia '+rank('mageStunRange'),75+this.mageStunRange*15+' px'],
    ['Czas ogłuszenia '+rank('mageStunDuration'),(0.8+this.mageStunDuration*.2).toFixed(1)+' s'],
