@@ -1563,16 +1563,39 @@ class Meadow extends Phaser.Scene{
    const rate=this.characterClass==='warrior'?1+this.warriorAttackRate*.1:this.attackRate;
    if(now-(this.lastAttack.get(p)||0)<650/rate)continue;
    if(this.characterClass==='warrior'){
-    const range=120*(1+this.warriorConeRange*.4),half=(10+this.warriorConeWidth*7)*Math.PI/180;
-    const targets=this.enemies.filter(e=>e.n%p===0&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<range+20);
+    const range=120*(1+this.warriorConeRange*.4);
+    const half=(10+this.warriorConeWidth*7)*Math.PI/180;
+    const px=this.player.x,py=this.player.y;
+    // Jeden najbliższy poprawny przeciwnik wyznacza kierunek zamachu dla danego dzielnika.
+    const targets=this.enemies.filter(e=>e.n%p===0&&Math.hypot(e.x-px,e.y-py)<=range+e.size);
     if(!targets.length)continue;
-    targets.sort((a,b)=>Math.hypot(a.x-this.player.x,a.y-this.player.y)-Math.hypot(b.x-this.player.x,b.y-this.player.y));
-    const t=targets[0],angle=Math.atan2(t.y-this.player.y,t.x-this.player.x);
-    this.meleeVisual.fillStyle(color,.22);this.meleeVisual.slice(this.player.x,this.player.y,range,angle-half,angle+half,false).fillPath();
-    this.meleeVisual.lineStyle(3,color,.9);this.meleeVisual.arc(this.player.x,this.player.y,range,angle-half,angle+half,false).strokePath();
-    this.showEffect('warrior_cone_small',this.player.x+Math.cos(angle)*range*.55,this.player.y+Math.sin(angle)*range*.55,175,range*.8,angle*180/Math.PI);
-    for(const e of [...this.enemies]){const ex=e.x-this.player.x,ey=e.y-this.player.y,dist=Math.hypot(ex,ey)||1,diff=Math.atan2(Math.sin(Math.atan2(ey,ex)-angle),Math.cos(Math.atan2(ey,ex)-angle));if(dist<=range+e.size*.4&&Math.abs(diff)<=half&&e.n%p===0)this.hit(e,p);}
-    this.lastAttack.set(p,now);continue;
+    targets.sort((a,b)=>Math.hypot(a.x-px,a.y-py)-Math.hypot(b.x-px,b.y-py));
+    const t=targets[0],angle=Math.atan2(t.y-py,t.x-px);
+    const start=angle-half,end=angle+half;
+    // Obszar jest rysowany od nowa z faktycznym kątem ulepszenia (20°–90°).
+    // Nie nakładamy stałej grafiki wąskiego stożka, która myliła gracza.
+    this.meleeVisual.fillStyle(color,.30);
+    this.meleeVisual.beginPath();
+    this.meleeVisual.moveTo(px,py);
+    this.meleeVisual.arc(px,py,range,start,end,false);
+    this.meleeVisual.closePath();
+    this.meleeVisual.fillPath();
+    this.meleeVisual.lineStyle(3,color,.95);
+    this.meleeVisual.beginPath();
+    this.meleeVisual.arc(px,py,range,start,end,false);
+    this.meleeVisual.strokePath();
+    // Trafiamy WSZYSTKICH wrogów przecinających obszar, a nie tylko cel kierunkowy.
+    // Uwzględniamy promień przeciwnika także przy bocznej krawędzi stożka.
+    for(const e of [...this.enemies]){
+     if(e.n%p!==0)continue;
+     const ex=e.x-px,ey=e.y-py,dist=Math.hypot(ex,ey);
+     if(dist>range+e.size)continue;
+     const diff=Math.abs(Math.atan2(Math.sin(Math.atan2(ey,ex)-angle),Math.cos(Math.atan2(ey,ex)-angle)));
+     const margin=dist>e.size?Math.asin(Math.min(1,e.size/dist)):Math.PI;
+     if(diff<=half+margin)this.hit(e,p);
+    }
+    this.lastAttack.set(p,now);
+    continue;
    }
    const targets=this.enemies.filter(e=>e.n%p===0&&Math.hypot(e.x-this.player.x,e.y-this.player.y)<this.attackRange).sort((a,b)=>Phaser.Math.Distance.Between(a.x,a.y,this.player.x,this.player.y)-Phaser.Math.Distance.Between(b.x,b.y,this.player.x,this.player.y));
    if(targets.length){for(const target of targets.slice(0,this.multishot))this.shoot(target,p,now);this.lastAttack.set(p,now);}
