@@ -1580,7 +1580,7 @@ class Meadow extends Phaser.Scene{
    const selected=this.active.includes(PRIMES[i]);button.classList.toggle('is-selected',selected);
    button.setAttribute('aria-pressed',String(selected));
   });
-  const dashReady=now-this.lastDash>=4000;
+  const dashReady=this.characterClass==='mage'?now-this.specialLast>=8000*(1-this.mageStunCooldown*.05):now-this.lastDash>=4000*(1-this.dashCooldownLevel*.05);
   document.getElementById('touch-dash').classList.toggle('is-cooling',!dashReady);
   this.dashBox.setFillStyle(dashReady?0x278a4a:0x515b55).setStrokeStyle(2,dashReady?0x8cde9b:0x7d8980);
   if(profiling){
@@ -1690,6 +1690,8 @@ class Meadow extends Phaser.Scene{
  applyCharacter(character){
   this.characterClass=character==='engineer'?'mage':['archer','warrior','mage'].includes(character)?character:'archer';
   this.heroVisual?.setVisible(false);this.heroSprite?.setVisible(this.characterClass==='archer');
+  const ability=this.characterClass==='mage'?'OGŁUSZENIE':this.characterClass==='warrior'?'SZARŻA':'UNIK';
+  this.dashHint?.setText(ability);const touch=document.getElementById('touch-dash');if(touch)touch.textContent=ability;
   this.classVisual.setVisible(false);if(this.classSprite){this.classSprite.destroy();this.classSprite=null;}
   if(this.characterClass!=='archer'){
    const key=this.characterClass==='mage'?'blue_mage':'warrior';
