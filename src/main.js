@@ -1418,7 +1418,7 @@ class Meadow extends Phaser.Scene{
    if(Math.random()<this.potionLevel*.005)this.spawnDrop('potion',enemy.x+22,enemy.y);
    if(Math.random()<.005)this.spawnDrop('magnet',enemy.x-22,enemy.y);
    if(enemy.boss){this.spawnDrop('potion',enemy.x+40,enemy.y);this.spawnDrop('magnet',enemy.x-40,enemy.y);}
-   if(enemy.swarm&&this.special?.kind==='swarm'&&this.special.active){this.special.remaining--;this.updateEventBar();}
+   if(enemy.swarm&&!enemy.castleWave&&this.special?.kind==='swarm'&&this.special.active){this.special.remaining--;this.updateEventBar();}
    if(enemy.sprite){
     const ghost=this.add.image(enemy.x,enemy.y-enemy.size*.3,enemy.sprite.texture.key)
      .setDisplaySize(enemy.size*2.8,enemy.size*2.8).setDepth(8).setAlpha(.85);
@@ -1441,11 +1441,13 @@ class Meadow extends Phaser.Scene{
   for(const cfg of configs){
    let x=cfg.x,y=cfg.y,found=false;
    // Znajdź najbliższy bezpieczny punkt w odpowiedniej krainie.
+   const priorTeleportTesting=this.teleportTesting;this.teleportTesting=true;
    for(let radius=0;radius<=700&&!found;radius+=70)for(let i=0;i<24;i++){
     const a=i*Math.PI/12,tx=cfg.x+Math.cos(a)*radius,ty=cfg.y+Math.sin(a)*radius;
     if(regionAt(tx,ty).id!==cfg.id||this.blocked(tx,ty,65))continue;
     x=tx;y=ty;found=true;break;
    }
+   this.teleportTesting=priorTeleportTesting;
    const enemy=this.makeEnemy(numbers[0],x,y);
    enemy.guardian=true;enemy.guardianRegion=cfg.id;enemy.guardianLayer=0;enemy.guardianNumbers=numbers.slice(0,cfg.layers);enemy.size=52;
    enemy.view.setScale(1.25);enemy.label.setFontSize(23).setColor('#ffe8aa');
