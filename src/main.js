@@ -226,7 +226,9 @@ class Meadow extends Phaser.Scene{
   this.collisionReadout=this.add.text(16,115,'',{fontFamily:'Arial',fontSize:'15px',fontStyle:'bold',color:'#ffffff',backgroundColor:'#4b1820',padding:{x:8,y:5}}).setScrollFactor(0).setDepth(120).setVisible(false);
   this.collisionDrawTime=0;
   // Cel wyprawy: teczka z czerwonymi paskami na końcu lochów.
-  this.briefcaseX=10200;this.briefcaseY=2300;
+  const caseLocations=[[8850,1500],[9600,1500],[10200,1500],[8850,2300],[9600,2300],[10200,2300],[8850,3100],[9600,3100],[10200,3100]];
+  const [caseX,caseY]=caseLocations[Math.floor(Math.random()*caseLocations.length)];
+  this.briefcaseX=caseX;this.briefcaseY=caseY;
   const caseArt=this.add.graphics().setDepth(8);
   caseArt.fillStyle(0x131719,.45).fillEllipse(this.briefcaseX+3,this.briefcaseY+16,52,15);
   caseArt.fillStyle(0x20242a).fillRoundedRect(this.briefcaseX-24,this.briefcaseY-14,48,35,5);
@@ -235,8 +237,8 @@ class Meadow extends Phaser.Scene{
   caseArt.lineStyle(6,0xb52e35).lineBetween(this.briefcaseX+7,this.briefcaseY-12,this.briefcaseX+7,this.briefcaseY+18);
   caseArt.lineStyle(5,0xc6a975).strokeRoundedRect(this.briefcaseX-9,this.briefcaseY-23,18,11,3);
   this.briefcaseArt=caseArt;
-  caseArt.setScale(1.9);
-  this.briefcaseBeacon=this.add.text(this.briefcaseX,this.briefcaseY-85,'★ TECZKA ★',{font:'bold 22px Arial',color:'#ffd86a',stroke:'#151819',strokeThickness:5}).setOrigin(.5).setDepth(12);
+  caseArt.setScale(1.9).setVisible(false);
+  this.briefcaseBeacon=this.add.text(this.briefcaseX,this.briefcaseY-85,'',{font:'bold 22px Arial',color:'#ffd86a',stroke:'#151819',strokeThickness:5}).setOrigin(.5).setDepth(12).setVisible(false);
   // Jedna gotowa tekstura radialnego półmroku, bez przeliczania światła co klatkę.
   const fogCanvas=document.createElement('canvas');fogCanvas.width=2048;fogCanvas.height=2048;
   const fogCtx=fogCanvas.getContext('2d');
@@ -277,6 +279,8 @@ class Meadow extends Phaser.Scene{
   this.cameras.main.startFollow(this.player,true,0.12,0.12);this.cameras.main.setBounds(0,0,WORLD,WORLD);
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SPACE,ONE,TWO,THREE,FOUR,FIVE,SIX,SEVEN,EIGHT');
   this.highestRegion=1;this.teleportTesting=false;
+  this.guardians=[];this.guardiansDefeated=new Set();this.castleWaveIndex=0;this.castleWaveActive=false;this.castleWavesDone=false;this.castleWaveEnemies=new Set();this.castleWaveDelay=0;
+  this.castleGateGraphics=this.add.graphics().setDepth(14);this.castleProgressText=this.add.text(16,146,'',{font:'bold 14px Arial',color:'#ffe6a4',stroke:'#14231c',strokeThickness:3}).setScrollFactor(0).setDepth(121);
   this.active=[2];this.locked=[];this.enemies=[];this.tokens=[];this.arrows=[];this.level=1;this.exp=0;this.total=0;this.health=5;this.startTime=0;this.clock=0;this.upgradeOpen=false;this.manualPause=false;this.pendingUpgrades=0;this.attackRange=450;this.attackRate=1;this.multishot=1;this.moveMultiplier=1;this.pickupRadius=37;this.maxHealth=5;this.potionLevel=0;this.dashRangeLevel=0;this.dashCooldownLevel=0;this.warriorPushRange=0;this.darkSkeletonCount=0;this.darkSkeletonRate=0;this.darkFear=0;this.darkAuraRange=0;this.darkAuraRate=0;this.darkLifesteal=0;this.darkGolemLevel=0;this.darkTauntDuration=0;this.darkTauntCooldown=0;this.darkSkeletons=[];this.darkGolem=null;this.darkAuraLast=0;this.darkTauntUntil=0;this.warriorSecondSwingAt=0;this.warriorSwingAngle=0;this.warriorConeRange=0;this.warriorConeWidth=0;this.warriorBlock=0;this.warriorDoublePotion=0;this.warriorIFrames=0;this.mageChainChance=0;this.mageChainCount=0;this.mageStunRange=0;this.mageStunDuration=0;this.mageStunCooldown=0;this.mageShieldRange=0;this.mageShieldCooldown=0;this.mageAttackRate=0;this.mageAttackRange=0;this.warriorAttackRate=0;this.specialLast=-10000;this.mageShieldLast=-10000;this.mageStunUntil=0;this.specialEffects=[];this.mageChains=new Map();this.chargeHitEnemies=new Set();this.knockbackLevel=0;this.attackDodgeLevel=0;this.rerollsLeft=3;this.drops=[];this.special=null;this.eventIndex=0;this.warningUntil=0;this.lastDash=-10000;this.invulnUntil=0;this.dashUntil=0;this.dashDirection=new Phaser.Math.Vector2(1,0);this.lastSpawn=-99999;this.lastAttack=new Map();this.lastDamage=0;this.lastMove=new Phaser.Math.Vector2(1,0);
   // Stałe elementy HUD: paski w lewym górnym rogu, dzielniki i unik na dole.
   const ui=(obj)=>obj.setScrollFactor(0).setDepth(100);
@@ -463,9 +467,15 @@ class Meadow extends Phaser.Scene{
  }
  blocked(x,y,radius){
   if(x<radius||y<radius||x>WORLD-radius||y>WORLD-radius||this.barrierAt(x,y,radius)||this.structureBlocked(x,y,radius)||this.regionBoundaryAt(x,y,radius))return true;
+  // Bramy są rzeczywistymi przeszkodami, nie tylko dekoracją.
+  if(!this.teleportTesting){
+   if(this.guardiansDefeated&&this.guardiansDefeated.size<3&&Math.abs(x-CASTLE.left)<95&&Math.abs(y-2350)<240)return true;
+   if(!this.castleWavesDone&&Math.abs(x-DUNGEON.left)<95&&Math.abs(y-2300)<205)return true;
+  }
   const targetRegion=regionAt(x,y);
   if(!this.teleportTesting){
-   if(targetRegion.id===7&&this.highestRegion<6)return true;
+   if(targetRegion.id===7&&(this.highestRegion<6||this.guardiansDefeated?.size<3))return true;
+   if(targetRegion.id===8&&!this.castleWavesDone)return true;
    if(targetRegion.id<=6&&targetRegion.id>this.highestRegion+1)return true;
   }
   return this.hitsObstacle(x,y,radius);
@@ -1384,6 +1394,19 @@ class Meadow extends Phaser.Scene{
   enemy.n/=prime;enemy.label.setText(String(enemy.n));enemy.body.setFillStyle(0xc9a5f0);if(enemy.sprite)enemy.sprite.setTint(0xe7baff);
   this.time.delayedCall(85,()=>{if(enemy.view.active)enemy.body.setFillStyle(enemy.baseColor)});
   if(enemy.n===1){
+   if(enemy.guardian){
+    enemy.guardianLayer++;
+    if(enemy.guardianLayer<enemy.guardianNumbers.length){
+     enemy.n=enemy.guardianNumbers[enemy.guardianLayer];enemy.label.setText(String(enemy.n));enemy.factorHits=0;
+     enemy.guardianInfo.setText('STRAŻNIK '+enemy.guardianRegion+'  •  WARSTWA '+(enemy.guardianLayer+1)+' / '+enemy.guardianNumbers.length);
+     enemy.view.setScale(1.06);this.tweens.add({targets:enemy.view,scale:1,duration:160});
+     return;
+    }
+    this.guardiansDefeated.add(enemy.guardianRegion);enemy.guardianInfo.destroy();
+    this.showQuestNotice('Strażnik krainy '+enemy.guardianRegion+' pokonany! ('+this.guardiansDefeated.size+'/3)');
+    if(this.guardiansDefeated.size===3)this.showQuestNotice('Wszystkie pieczęcie złamane! Wrota zamku otwarte.');
+   }
+   if(enemy.castleWave)this.castleWaveEnemies.delete(enemy);
    const reward=enemy.boss?(enemy.bornMinute===10?30:enemy.bornMinute===20?40:50):1;
    for(let i=0;i<reward;i++){
     const angle=i*2.39996,radius=enemy.boss?12+Math.sqrt(i)*14:0;
@@ -1403,6 +1426,68 @@ class Meadow extends Phaser.Scene{
    }
    enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);
   }
+ }
+ showQuestNotice(message){
+  const banner=document.getElementById('event-warning');
+  if(banner){banner.textContent=message;banner.hidden=false;this.time.delayedCall(3500,()=>{if(banner.textContent===message)banner.hidden=true;});}
+ }
+ initCastleQuest(){
+  const configs=[
+   {id:2,x:9950,y:9800,layers:5},
+   {id:4,x:5800,y:5700,layers:7},
+   {id:6,x:2500,y:2250,layers:10}
+  ];
+  const numbers=[2310,3570,2730,3990,4620,6630,7980,9690,11550,15015];
+  for(const cfg of configs){
+   let x=cfg.x,y=cfg.y,found=false;
+   // Znajdź najbliższy bezpieczny punkt w odpowiedniej krainie.
+   for(let radius=0;radius<=700&&!found;radius+=70)for(let i=0;i<24;i++){
+    const a=i*Math.PI/12,tx=cfg.x+Math.cos(a)*radius,ty=cfg.y+Math.sin(a)*radius;
+    if(regionAt(tx,ty).id!==cfg.id||this.blocked(tx,ty,65))continue;
+    x=tx;y=ty;found=true;break;
+   }
+   const enemy=this.makeEnemy(numbers[0],x,y);
+   enemy.guardian=true;enemy.guardianRegion=cfg.id;enemy.guardianLayer=0;enemy.guardianNumbers=numbers.slice(0,cfg.layers);enemy.size=52;
+   enemy.view.setScale(1.25);enemy.label.setFontSize(23).setColor('#ffe8aa');
+   enemy.guardianInfo=this.add.text(x,y-112,'STRAŻNIK '+cfg.id+'  •  WARSTWA 1 / '+cfg.layers,{font:'bold 16px Arial',color:'#ffe4a2',stroke:'#221326',strokeThickness:5}).setOrigin(.5).setDepth(15);
+   this.guardians.push(enemy);
+  }
+ }
+ updateCastleQuest(now){
+  if(!this.guardians.length)this.initCastleQuest();
+  const ready=this.guardiansDefeated.size===3;
+  const inCastle=this.player.x>CASTLE.left+110&&this.player.x<CASTLE.right-100&&this.player.y>CASTLE.top&&this.player.y<CASTLE.bottom;
+  if(ready&&inCastle&&!this.castleWaveActive&&!this.castleWavesDone&&now>=this.castleWaveDelay)this.beginCastleWave();
+  if(this.castleWaveActive&&this.castleWaveEnemies.size===0){
+   this.castleWaveActive=false;
+   if(this.castleWaveIndex===4){
+    this.castleWavesDone=true;this.briefcaseArt.setVisible(true);
+    this.showQuestNotice('Oblężenie zakończone! Wrota lochów otwarte. Odszukaj teczkę.');
+   }else{this.castleWaveDelay=now+2500;this.showQuestNotice('Fala '+this.castleWaveIndex+'/4 odparta!');}
+  }
+  this.castleProgressText.setText(!ready?'Strażnicy krain: '+this.guardiansDefeated.size+'/3':!this.castleWavesDone?'Zamek: fala '+this.castleWaveIndex+'/4'+(this.castleWaveActive?' • wrogowie '+this.castleWaveEnemies.size:''):'Lochy: odnajdź teczkę');
+  const g=this.castleGateGraphics;g.clear();
+  if(!ready)this.drawCastleGate(g,CASTLE.left,2350,0xffc46a);
+  if(!this.castleWavesDone)this.drawCastleGate(g,DUNGEON.left,2300,0xb782ff);
+ }
+ drawCastleGate(g,x,y,color){
+  g.fillStyle(0x201b2c,.92).fillRoundedRect(x-23,y-178,46,356,8);
+  g.lineStyle(5,color,.95).strokeRoundedRect(x-23,y-178,46,356,8);
+  for(let k=-3;k<=3;k++){g.lineStyle(3,color,.7).lineBetween(x-19,y+k*44,x+19,y+k*44);}
+  g.fillStyle(color,.9).fillCircle(x,y,13);
+ }
+ beginCastleWave(){
+  const prime=[19,17,13,11][this.castleWaveIndex];
+  if(!prime)return;
+  this.castleWaveIndex++;this.castleWaveActive=true;
+  const spots=[[6470,2070],[6500,2600],[7120,1960],[7120,2660],[7470,2110],[7470,2570],[8110,2150],[8110,2530],[7330,2300],[6800,2300],[7910,2300],[7350,2900]];
+  const total=8+this.castleWaveIndex*2;
+  for(let i=0;i<total;i++){
+   const [sx,sy]=spots[i%spots.length],x=sx+(Math.floor(i/spots.length))*35,y=sy;
+   const enemy=this.makeEnemy(2*3*5*prime,x,y,{swarm:true});
+   enemy.castleWave=true;this.castleWaveEnemies.add(enemy);
+  }
+  this.showQuestNotice('OBLĘŻENIE ZAMKU — FALA '+this.castleWaveIndex+'/4  •  2, 3, 5, '+prime);
  }
  drawCollisionDebug(force=false){
   if(!this.collisionDebug)return;
@@ -1435,8 +1520,9 @@ class Meadow extends Phaser.Scene{
   const now=this.clock;
   if(this.lastSpawn<0){this.spawnWave(2);this.lastSpawn=now;}
   if(this.health<=0){this.finishGame(false);return;}
-  if(Math.hypot(this.player.x-this.briefcaseX,this.player.y-this.briefcaseY)<65){this.finishGame(true);return;}
+  if(this.castleWavesDone&&Math.hypot(this.player.x-this.briefcaseX,this.player.y-this.briefcaseY)<65){this.finishGame(true);return;}
   const dt=Math.min(delta,50)/1000;
+  this.updateCastleQuest(now);
   let dx=Number(this.isPressed('d','right'))-Number(this.isPressed('a','left'))+(this.controlMode==='touch'?this.touchVector.x:0);
   let dy=Number(this.isPressed('s','down'))-Number(this.isPressed('w','up'))+(this.controlMode==='touch'?this.touchVector.y:0);
   const len=Math.hypot(dx,dy);
@@ -1490,10 +1576,10 @@ class Meadow extends Phaser.Scene{
   const enemyStart=profiling?performance.now():0;
   for(const enemy of [...this.enemies]){
    const distance=Math.hypot(this.player.x-enemy.x,this.player.y-enemy.y)||1;
-   if(!enemy.swarm&&!enemy.boss&&enemy.bornMinute<minute&&(enemy.x<bound.left-400||enemy.x>bound.right+400||enemy.y<bound.top-300||enemy.y>bound.bottom+300)){enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);continue;}
+   if(!enemy.guardian&&!enemy.castleWave&&!enemy.swarm&&!enemy.boss&&enemy.bornMinute<minute&&(enemy.x<bound.left-400||enemy.x>bound.right+400||enemy.y<bound.top-300||enemy.y>bound.bottom+300)){enemy.view.destroy();this.enemies.splice(this.enemies.indexOf(enemy),1);continue;}
    // Przeciwnik ściga gracza niezależnie od odległości i rozmiaru okna.
    const enemySpeed=(enemy.boss?38:55)*((enemy.boss||enemy.swarm)&&now-enemy.bornAt<3000?2:1);
-   if(now>=(enemy.stunnedUntil||0)){
+   if(!enemy.guardian&&now>=(enemy.stunnedUntil||0)){
     if(this.characterClass==='dark_mage'&&this.darkGolem&&now<this.darkTauntUntil){const oldX=this.player.x,oldY=this.player.y;this.player.x=this.darkGolem.x;this.player.y=this.darkGolem.y;this.steerEnemy(enemy,dt,enemySpeed*(now<(enemy.fearedUntil||0)?.5:1));this.player.x=oldX;this.player.y=oldY;}
     else this.steerEnemy(enemy,dt,enemySpeed*(now<(enemy.fearedUntil||0)?.5:1));
    }enemy.view.setPosition(enemy.x,enemy.y);
@@ -1506,7 +1592,7 @@ class Meadow extends Phaser.Scene{
     if(now<enemy.hitUntil)enemy.sprite.setTint(0xffd1d1);
     else enemy.sprite.clearTint();
    }
-   if(distance<enemy.size+12&&now-this.lastDamage>(this.characterClass==='warrior'?1500+this.warriorIFrames*100:850)&&now>this.invulnUntil){
+   if(!enemy.guardian&&distance<enemy.size+12&&now-this.lastDamage>(this.characterClass==='warrior'?1500+this.warriorIFrames*100:850)&&now>this.invulnUntil){
     const blocked=this.characterClass==='warrior'&&Math.random()<(.10+this.warriorBlock*.05);
     const dodged=this.characterClass==='archer'&&Math.random()<this.attackDodgeLevel*.01;
     if(!blocked&&!dodged){this.health-=enemy.boss?2:1;
