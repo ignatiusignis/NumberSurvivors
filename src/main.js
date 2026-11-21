@@ -1874,7 +1874,7 @@ this.mageShieldLast=now;const r=45+this.mageShieldRange*12;this.showEffect('mage
   this.mageShieldSprite?.setVisible(false);this.classVisual.setVisible(false);if(this.classSprite){this.classSprite.destroy();this.classSprite=null;}
   if(this.characterClass!=='archer'){
    const key=this.characterClass==='dark_mage'?'dark_mage':this.characterClass==='mage'?'blue_mage_new':'warrior_new';
-   if(this.textures.exists(key)){this.classSprite=this.add.image(0,-7,key).setDisplaySize(76,76).setOrigin(.5,.62);this.player.add(this.classSprite);}
+   if(this.textures.exists(key)){this.classSprite=this.add.image(0,-7,key).setDisplaySize(this.characterClass==='mage'||this.characterClass==='dark_mage'?94:76,this.characterClass==='mage'||this.characterClass==='dark_mage'?94:76).setOrigin(.5,.62);this.player.add(this.classSprite);}
    else this.classVisual.setVisible(true);
   }
  }
