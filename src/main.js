@@ -1398,7 +1398,7 @@ class Meadow extends Phaser.Scene{
     enemy.guardianLayer++;
     if(enemy.guardianLayer<enemy.guardianNumbers.length){
      enemy.n=enemy.guardianNumbers[enemy.guardianLayer];enemy.label.setText(String(enemy.n));enemy.factorHits=0;
-     enemy.guardianInfo.setText('STRAŻNIK KRAINY '+enemy.guardianRegion+'\nWARSTWA '+(enemy.guardianLayer+1)+' / '+enemy.guardianNumbers.length);
+     
      enemy.view.setScale(1.06);this.tweens.add({targets:enemy.view,scale:1,duration:160});
      return;
     }
@@ -1450,8 +1450,8 @@ class Meadow extends Phaser.Scene{
    this.teleportTesting=priorTeleportTesting;
    const enemy=this.makeEnemy(numbers[0],x,y);
    enemy.guardian=true;enemy.guardianRegion=cfg.id;enemy.guardianLayer=0;enemy.guardianNumbers=numbers.slice(0,cfg.layers);enemy.size=52;
-   enemy.view.setScale(1.25);enemy.label.setFontSize(23).setColor('#ffe8aa');
-   enemy.guardianInfo=this.add.text(x,y-143,'STRAŻNIK KRAINY '+cfg.id+'\nWARSTWA 1 / '+cfg.layers,{fontFamily:'Arial',fontSize:'17px',fontStyle:'bold',align:'center',color:'#fff4c9',stroke:'#10141b',strokeThickness:5,lineSpacing:4}).setOrigin(.5).setDepth(25);
+   enemy.view.setScale(1.25);enemy.label.setFontSize(28).setColor('#fff4c7').setY(-145).setStroke('#171222',6);
+   enemy.guardianInfo=this.add.text(x,y-232,'STRAŻNIK',{fontFamily:'Arial',fontSize:'20px',fontStyle:'bold',align:'center',color:'#fff4c9',stroke:'#10141b',strokeThickness:6}).setOrigin(.5).setDepth(25);
    this.guardians.push(enemy);
   }
  }
