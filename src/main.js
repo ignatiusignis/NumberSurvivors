@@ -1489,7 +1489,7 @@ class Meadow extends Phaser.Scene{
    const enemy=this.makeEnemy(2*3*5*prime,x,y,{swarm:true});
    enemy.castleWave=true;this.castleWaveEnemies.add(enemy);
   }
-  this.showQuestNotice('OBLĘŻENIE ZAMKU — FALA '+this.castleWaveIndex+'/4  •  2, 3, 5, '+prime);
+  this.showQuestNotice('Fala '+this.castleWaveIndex+'/4');
  }
  drawCollisionDebug(force=false){
   if(!this.collisionDebug)return;
