@@ -1451,7 +1451,7 @@ class Meadow extends Phaser.Scene{
    const enemy=this.makeEnemy(numbers[0],x,y);
    enemy.guardian=true;enemy.guardianRegion=cfg.id;enemy.guardianLayer=0;enemy.guardianNumbers=numbers.slice(0,cfg.layers);enemy.size=52;
    enemy.view.setScale(1.25);enemy.label.setFontSize(23).setColor('#ffe8aa');
-   enemy.guardianInfo=this.add.text(x,y-158,'STRAŻNIK KRAINY '+cfg.id+'\nWARSTWA 1 / '+cfg.layers,{fontFamily:'Arial',fontSize:'18px',fontStyle:'bold',align:'center',color:'#fff4c9',stroke:'#10141b',strokeThickness:5,backgroundColor:'#15221fe8',padding:{x:14,y:8},lineSpacing:5}).setOrigin(.5).setDepth(25);
+   enemy.guardianInfo=this.add.text(x,y-143,'STRAŻNIK KRAINY '+cfg.id+'\nWARSTWA 1 / '+cfg.layers,{fontFamily:'Arial',fontSize:'17px',fontStyle:'bold',align:'center',color:'#fff4c9',stroke:'#10141b',strokeThickness:5,lineSpacing:4}).setOrigin(.5).setDepth(25);
    this.guardians.push(enemy);
   }
  }
