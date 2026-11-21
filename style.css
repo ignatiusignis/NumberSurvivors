@@ -276,3 +276,21 @@ body:not(.touch-mode) #touch-controls{display:none!important}
 #difficulty-start.menu-primary{width:min(560px,100%);max-width:none;margin:3px auto 0;padding:clamp(10px,2vh,18px);border:2px solid #ffdf8b;border-bottom:5px solid #5e3e17;border-radius:12px;background:linear-gradient(180deg,#a87934,#66431e);box-shadow:0 0 20px #edba5b3d,inset 0 1px #fff0ae;color:#fff4c7;font:bold clamp(16px,2.7vw,25px) Georgia,serif;letter-spacing:.04em;text-shadow:0 2px 2px #37220c;cursor:pointer}
 @media(max-width:620px){.character-choice img{height:clamp(85px,20vh,155px)}.character-choice strong{font-size:clamp(12px,3vw,17px)}.difficulty-buttons{gap:4px}.difficulty-buttons span{font-size:10px;min-height:45px}.character-selection{min-height:125px}}
 @media(max-height:460px){.character-choice img{height:clamp(55px,17vh,90px)}.character-selection{min-height:85px}.difficulty-buttons span{min-height:30px}.difficulty-selection{gap:4px;min-height:80px}#difficulty-start.menu-primary{padding:6px}.character-select-panel:not([hidden]){gap:3px}}
+
+/* v0.9.21 — jednakowe karty i optycznie wyrównane sylwetki */
+#main-menu:has(.character-select-panel:not([hidden])) .menu-scene{width:min(1080px,100%);}
+.character-selection{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch;gap:clamp(6px,1.2vw,14px);}
+.character-choice{display:grid;grid-template-rows:minmax(0,1fr) minmax(56px,auto);justify-items:center;align-items:center;align-content:stretch;gap:0;overflow:hidden;padding:clamp(7px,1vw,14px);}
+.character-choice img{grid-row:1;width:100%;height:clamp(110px,27vh,245px);max-width:100%;object-fit:contain;transform-origin:center center;filter:drop-shadow(0 7px 8px #0006);}
+.character-choice strong{grid-row:2;display:flex;align-items:center;justify-content:center;width:100%;min-height:56px;padding:5px 3px;font-size:clamp(13px,1.7vw,21px);line-height:1.15;overflow-wrap:normal;word-break:normal;hyphens:none;text-align:center;}
+.character-choice:has(input[value="mage"]) img{transform:scale(1.36);}
+.character-choice:has(input[value="dark_mage"]) img{transform:scale(1.36);}
+.character-choice:has(input[value="warrior"]) img{transform:scale(.90);}
+.character-choice:has(input[value="archer"]) img{transform:scale(1.03);}
+@media(max-width:620px){
+ .character-selection{gap:5px;}
+ .character-choice{padding:5px 3px;grid-template-rows:minmax(0,1fr) minmax(48px,auto);}
+ .character-choice img{height:clamp(82px,19vh,155px);}
+ .character-choice strong{font-size:clamp(10px,2.6vw,15px);min-height:48px;}
+}
+@media(max-height:460px){.character-choice img{height:clamp(60px,18vh,95px)}.character-choice strong{min-height:32px;font-size:12px}.character-choice{grid-template-rows:minmax(0,1fr) 32px}}
