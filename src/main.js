@@ -267,7 +267,7 @@ class Meadow extends Phaser.Scene{
   this.player.add(hero);this.heroVisual=hero;this.heroBoots=boots;
   if(this.textures.exists('rogue_archer')){
    hero.setVisible(false);
-   this.heroSprite=this.add.image(0,-7,'rogue_archer_new').setDisplaySize(76,76);
+   this.heroSprite=this.add.image(0,-7,'rogue_archer').setDisplaySize(76,76);
    this.player.add(this.heroSprite);
    this.heroSprite.setOrigin(.5,.62);
   }
