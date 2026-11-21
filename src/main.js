@@ -1907,7 +1907,7 @@ this.mageShieldLast=now;const r=45+this.mageShieldRange*12;this.showEffect('mage
    const destX=target&&!outOfBounds?target.x:homeX,destY=target&&!outOfBounds?target.y:homeY;
    const dx=destX-s.x,dy=destY-s.y,d=Math.hypot(dx,dy)||1;
    const stop=target&&!outOfBounds?target.size+22:10;
-   if(d>stop){const step=Math.min(d-stop,125*dt);s.x+=dx/d*step;s.y+=dy/d*step;}
+   if(d>stop){const step=Math.min(d-stop,220*this.moveMultiplier*1.5*(1+this.darkSkeletonRate/6)*dt);s.x+=dx/d*step;s.y+=dy/d*step;}
    // Pościg nigdy nie wyprowadza szkieletu poza promień 450 px.
    const fromPlayer=Math.hypot(s.x-px,s.y-py);
    if(fromPlayer>leash){s.x=px+(s.x-px)/fromPlayer*leash;s.y=py+(s.y-py)/fromPlayer*leash;}
@@ -1926,7 +1926,7 @@ this.mageShieldLast=now;const r=45+this.mageShieldRange*12;this.showEffect('mage
    const far=Math.hypot(g.x-px,g.y-py)>leash;
    const dx=(t&&!far?t.x:px+70)-g.x,dy=(t&&!far?t.y:py)-g.y,d=Math.hypot(dx,dy)||1;
    const stop=t&&!far?t.size+35:10;
-   if(d>stop){const step=Math.min(d-stop,100*dt);g.x+=dx/d*step;g.y+=dy/d*step;}
+   if(d>stop){const step=Math.min(d-stop,220*this.moveMultiplier*1.5*(1+(this.darkGolemLevel-1)*.25)*dt);g.x+=dx/d*step;g.y+=dy/d*step;}
    const golemDistance=Math.hypot(g.x-px,g.y-py);
    if(golemDistance>leash){g.x=px+(g.x-px)/golemDistance*leash;g.y=py+(g.y-py)/golemDistance*leash;}
    g.sprite.setPosition(g.x,g.y).setFlipX(dx<0);
